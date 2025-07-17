@@ -5,6 +5,25 @@ import { Bell, User, AlertTriangle } from 'lucide-react';
 export default function MeditrackDashboard() {
   const navigate = useNavigate();
 
+  // Get current date and time
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const date = now.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const time = now.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      second: '2-digit',
+      hour12: true 
+    });
+    return { date, time };
+  };
+
+  const { date, time } = getCurrentDateTime();
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -102,8 +121,8 @@ export default function MeditrackDashboard() {
             {/* Date and Time */}
             <div className="flex justify-center mb-4">
               <div className="flex flex-col items-center">
-                <h2 className="font-normal text-[25px] text-black">April 1, 2025</h2>
-                <p className="mt-2 font-normal text-black text-xl">1:37:50 P.M</p>
+                <h2 className="font-normal text-[25px] text-black">{date}</h2>
+                <p className="mt-2 font-normal text-black text-xl">{time}</p>
                 <div className="w-[190px] h-0.5 mt-4 bg-[#A3386C]"></div>
               </div>
             </div>
