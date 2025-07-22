@@ -1,9 +1,26 @@
 import React from "react";
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User, AlertTriangle } from 'lucide-react';
+import { Bell, 
+  User, 
+  LayoutDashboard,
+  Archive,
+  FileText,
+  History,
+  ShieldQuestion
+} from 'lucide-react';
 
 export default function Reports() {
   const navigate = useNavigate();
+
+  // Redirect if not logged in
+    useEffect(() => {
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      if (!isLoggedIn) {
+        navigate("/"); // redirect to login
+      }
+    }, [navigate]);
+
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -27,49 +44,43 @@ export default function Reports() {
         <nav className="mt-10">
           <div className="px-4 space-y-6">
             <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
-                onClick={() => navigate('/')}>
-              <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-              </div>
-              <p className="text-sm font-medium">Dashboard</p>
+              onClick={() => navigate('/Dashboard')}>
+              <LayoutDashboard className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm font-medium text-white">Dashboard</p>
             </div>
-            
+
             <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
               onClick={() => navigate('/Stocks')}>
-                <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                    <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-                </div>
-                <p className="text-sm">Stocks</p>
+              <Archive className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm text-white">Stocks</p>
             </div>
-            
+
             <div className="flex items-center px-4 py-3 bg-[#77536A] rounded-lg">
-              <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-              </div>
-              <p className="text-sm">Reports</p>
+              <FileText className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm text-white">Reports</p>
             </div>
-            
+
             <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
               onClick={() => navigate('/History')}>
-              <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-              </div>
-              <p className="text-sm">History</p>
+              <History className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm text-white">History</p>
             </div>
-            
+
             <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
               onClick={() => navigate('/About')}>
-              <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-              </div>
-              <p className="text-sm">About</p>
+              <ShieldQuestion className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm text-white">About</p>
             </div>
           </div>
         </nav>
 
         {/* Logout */}
         <div className="absolute bottom-6 left-6">
-          <div className="flex items-center hover:text-white cursor-pointer">
+          <div className="flex items-center hover:text-white cursor-pointer"
+            onClick={() => {
+              localStorage.removeItem("isLoggedIn");
+              navigate("/");
+            }}>
             <div className="w-5 h-5 mr-3">
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                 <path d="M16 13v-2H7V8l-5 4 5 4v-3z"/>
@@ -104,3 +115,5 @@ export default function Reports() {
     </div>
   );
 }
+
+

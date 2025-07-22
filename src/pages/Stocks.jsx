@@ -1,11 +1,74 @@
-import React from "react";
+import React, { useState } from "react";
+import { useEffect } from 'react';
+import { Bell, 
+  User, 
+  ArrowLeft, 
+  Search,
+  SquarePen, 
+  Trash2, 
+  HandCoins, 
+  LayoutDashboard,
+  Archive,
+  FileText,
+  History,
+  ShieldQuestion
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User, AlertTriangle } from 'lucide-react';
 
-export default function Stocks() {
+// Mock medicine data for each branch
+const branchMedicines = {
+  1: [ // Fr Selga Campus
+    { id: 1, name: "Paracetamol 500mg", category: "Pain Relief", stock: 150, minStock: 50, expiry: "2025-12-15" },
+    { id: 2, name: "Amoxicillin 250mg", category: "Antibiotic", stock: 75, minStock: 30, expiry: "2025-08-20" },
+    { id: 3, name: "Ibuprofen 400mg", category: "Anti-inflammatory", stock: 25, minStock: 40, expiry: "2025-11-30" },
+    { id: 4, name: "Cetirizine 10mg", category: "Antihistamine", stock: 90, minStock: 25, expiry: "2026-01-10" },
+    { id: 5, name: "Omeprazole 20mg", category: "Antacid", stock: 60, minStock: 20, expiry: "2025-09-25" },
+    { id: 20, name: "Aspirin 80mg", category: "Cardioprotective", stock: 110, minStock: 35, expiry: "2025-10-20" },
+  ],
+  2: [ // Bonifacio Campus
+    { id: 6, name: "Paracetamol 500mg", category: "Pain Relief", stock: 120, minStock: 50, expiry: "2025-10-15" },
+    { id: 7, name: "Salbutamol Inhaler", category: "Bronchodilator", stock: 15, minStock: 10, expiry: "2025-07-30" },
+    { id: 8, name: "Metformin 500mg", category: "Diabetes", stock: 80, minStock: 30, expiry: "2025-12-20" },
+    { id: 9, name: "Losartan 50mg", category: "Hypertension", stock: 45, minStock: 25, expiry: "2025-11-15" },
+    { id: 21, name: "Amlodipine 5mg", category: "Hypertension", stock: 65, minStock: 20, expiry: "2025-09-30" },
+  ],
+  3: [ // Bajada Campus (SHS)
+    { id: 10, name: "Paracetamol 500mg", category: "Pain Relief", stock: 200, minStock: 50, expiry: "2026-02-15" },
+    { id: 11, name: "Betadine Solution", category: "Antiseptic", stock: 30, minStock: 15, expiry: "2025-08-10" },
+    { id: 12, name: "Bandages", category: "First Aid", stock: 100, minStock: 20, expiry: "2027-01-01" },
+    { id: 13, name: "Alcohol 70%", category: "Antiseptic", stock: 50, minStock: 20, expiry: "2025-12-31" },
+    { id: 22, name: "Hydrogen Peroxide", category: "Antiseptic", stock: 35, minStock: 15, expiry: "2025-11-25" },
+  ],
+  4: [ // Bajada Campus (JHS)
+    { id: 14, name: "Children's Paracetamol", category: "Pain Relief", stock: 85, minStock: 30, expiry: "2025-09-20" },
+    { id: 15, name: "Oral Rehydration Salts", category: "Rehydration", stock: 40, minStock: 20, expiry: "2026-03-15" },
+    { id: 16, name: "Cough Syrup", category: "Cough Relief", stock: 20, minStock: 15, expiry: "2025-08-30" },
+    { id: 23, name: "Children's Ibuprofen", category: "Anti-inflammatory", stock: 55, minStock: 25, expiry: "2025-12-05" },
+  ],
+  5: [ // Bajada Campus (GS)
+    { id: 17, name: "Children's Vitamins", category: "Supplements", stock: 60, minStock: 25, expiry: "2025-11-10" },
+    { id: 18, name: "First Aid Kit", category: "Emergency", stock: 10, minStock: 5, expiry: "2026-12-31" },
+    { id: 19, name: "Thermometer", category: "Medical Device", stock: 8, minStock: 3, expiry: "N/A" },
+    { id: 24, name: "Zinc Supplements", category: "Supplements", stock: 45, minStock: 20, expiry: "2025-10-15" },
+  ]
+};
+
+function StocksPage() {
+  const [currentView, setCurrentView] = useState('main');
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
   const navigate = useNavigate();
 
-  // Data for clinic branches - all data is contained within the component
+  // Redirect if not logged in
+    useEffect(() => {
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      if (!isLoggedIn) {
+        navigate("/"); // redirect to login
+      }
+    }, [navigate]);
+
+  // Data for clinic branches
   const clinicBranches = [
     {
       id: 1,
@@ -30,7 +93,7 @@ export default function Stocks() {
     {
       id: 5,
       name: "Bajada Campus, Davao City, Philippines",
-      suffix: "(ELEM)",
+      suffix: "(GS)",
     },
   ];
 
@@ -54,8 +117,16 @@ export default function Stocks() {
   const { date, time } = getCurrentDateTime();
 
   const handleViewClick = (branchId) => {
-    console.log(`Viewing branch with ID: ${branchId}`);
-    // Add your navigation logic here
+    const branch = clinicBranches.find(b => b.id === branchId);
+    setSelectedBranch(branch);
+    setCurrentView('branch');
+    setSearchTerm('');
+  };
+
+  const handleBackToMain = () => {
+    setCurrentView('main');
+    setSelectedBranch(null);
+    setSearchTerm('');
   };
 
   const handleRequestMedicine = () => {
@@ -68,9 +139,35 @@ export default function Stocks() {
     // Add your logout logic here
   };
 
+  // Get medicines for selected branch
+  const getMedicinesForBranch = () => {
+    if (!selectedBranch) return [];
+    const medicines = branchMedicines[selectedBranch.id] || [];
+    
+    if (searchTerm) {
+      return medicines.filter(medicine => 
+        medicine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        medicine.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    return medicines;
+  };
+
+  const isLowStock = (stock, minStock) => stock <= minStock;
+  const isExpiringSoon = (expiry) => {
+    if (expiry === "N/A") return false;
+    const expiryDate = new Date(expiry);
+    const today = new Date();
+    const diffTime = expiryDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 90; // Expiring within 3 months
+  };
+
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar */}
+      {currentView === 'main' && (
       <div className="fixed top-0 left-0 h-screen w-64 bg-gradient-to-b from-[#3D1528] to-[#A3386C] text-white z-10">
         {/* Profile */}
         <div className="p-6 mt-4 border-b border-white">
@@ -90,49 +187,43 @@ export default function Stocks() {
         <nav className="mt-10">
           <div className="px-4 space-y-6">
             <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
-                onClick={() => navigate('/')}>
-              <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-              </div>
-              <p className="text-sm font-medium">Dashboard</p>
+              onClick={() => navigate('/Dashboard')}>
+              <LayoutDashboard className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm font-medium text-white">Dashboard</p>
             </div>
             
             <div className="flex items-center px-4 py-3 bg-[#77536A] rounded-lg">
-                <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                    <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-                </div>
-                <p className="text-sm">Stocks</p>
+              <Archive className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm text-white">Stocks</p>
             </div>
             
             <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
               onClick={() => navigate('/Reports')}>
-              <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-              </div>
-              <p className="text-sm">Reports</p>
+              <FileText className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm text-white">Reports</p>
             </div>
             
             <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
               onClick={() => navigate('/History')}>
-              <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-              </div>
-              <p className="text-sm">History</p>
+              <History className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm text-white">History</p>
             </div>
             
             <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
               onClick={() => navigate('/About')}>
-              <div className="w-5 h-5 mr-3 bg-white rounded-sm flex items-center justify-center">
-                <div className="w-3 h-3 bg-purple-800 rounded-sm"></div>
-              </div>
-              <p className="text-sm">About</p>
+              <ShieldQuestion className="w-5 h-5 mr-3 text-white" />
+              <p className="text-sm text-white">About</p>
             </div>
           </div>
         </nav>
 
         {/* Logout */}
         <div onClick={handleLogout} className="absolute bottom-6 left-6">
-          <div className="flex items-center hover:text-white cursor-pointer">
+          <div className="flex items-center hover:text-white cursor-pointer"
+            onClick={() => {
+              localStorage.removeItem("isLoggedIn");
+              navigate("/");
+            }}>
             <div className="w-5 h-5 mr-3">
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                 <path d="M16 13v-2H7V8l-5 4 5 4v-3z"/>
@@ -143,11 +234,13 @@ export default function Stocks() {
           </div>
         </div>
       </div>
+      )}
+
 
       {/* Main Content */}
-      <div className="ml-64 flex-1 flex flex-col">
+      <div className={`${currentView === 'main' ? 'ml-64' : ''} flex-1 flex flex-col h-screen`}>
         {/* Header */}
-        <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3">
+        <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <span></span>
             <div className="flex items-center">
@@ -160,8 +253,10 @@ export default function Stocks() {
           </div>
         </header>
 
-        {/* Main Dashboard Container */}
-          <div className="bg-white main-dashboard px-20 py-6">
+        {/* Main Content Area */}
+        {currentView === 'main' ? (
+          // Main Stocks View
+          <div className="bg-white flex-1 px-20 py-6 overflow-hidden">
             {/* Date and Time */}
             <div className="flex justify-center mb-6">
               <div className="flex flex-col items-center">
@@ -212,8 +307,140 @@ export default function Stocks() {
               </button>
             </div>
           </div>
-          
+        ) : (
+          // Branch Inventory View - Fixed height with scrollable table
+          <div className="bg-gray-100 flex-1 flex flex-col overflow-hidden">
+            {/* Back Button and Date/Time Section */}
+            <div className="bg-white flex-shrink-0">
+              <div className="flex items-start px-8 py-4">
+                <button onClick={handleBackToMain} 
+                  className="flex items-center text-gray-600 hover:text-[#a3386c] transition-colors duration-200 mt-2">
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                </button>
+                <div className="flex-1 flex justify-center">
+                  <div className="flex flex-col items-center">
+                    <h2 className="font-normal text-[28px] text-black">{date}</h2>
+                    <p className="mt-2 font-normal text-black text-lg">{time}</p>
+                    <div className="w-[190px] h-0.5 mt-4 bg-[#A3386C]"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stock Available List Section - Flexible height */}
+            <div className="bg-white px-8 py-6 flex-1 flex flex-col overflow-hidden" style={{ minHeight: '600px' }}>
+              {/* Title and Search */}
+              <div className="flex items-center justify-between mb-6 flex-shrink-0">
+                <div>
+                  <h2 className="text-xl font-medium text-black mb-1">Stock Available List</h2>
+                  <p className="text-gray-600 text-sm">{selectedBranch?.name} {selectedBranch?.suffix}</p>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search Medicine"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#a3386c] focus:border-transparent text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Medicine Table - Scrollable */}
+              <div className="bg-white rounded-lg overflow-hidden flex-1 flex flex-col">
+                <div className="overflow-auto flex-1">
+                  <table className="w-full">
+                    <thead className="bg-[#D4A5B8] text-black sticky top-0">
+                      <tr>
+                        <th className="px-6 py-4 text-left font-medium">MEDICINE NAME</th>
+                        <th className="px-6 py-4 text-left font-medium">CATEGORY</th>
+                        <th className="px-6 py-4 text-left font-medium">DATE RECEIVED</th>
+                        <th className="px-6 py-4 text-left font-medium">EXPIRATION DATE</th>
+                        <th className="px-6 py-4 text-left font-medium">QUANTITY</th>
+                        <th className="px-6 py-4 text-center font-medium"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {getMedicinesForBranch().map((medicine, index) => (
+                        <tr key={medicine.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4">
+                            <div className="text-gray-900 font-medium">
+                              {medicine.category === "Pain Relief" ? "RITEMED" : 
+                               medicine.category === "Antibiotic" ? "RITEMED" : 
+                               medicine.category === "Anti-inflammatory" ? "RITEMED" : 
+                               medicine.name.split(' ')[0]}
+                            </div>
+                            <div className="text-gray-600 text-sm">{medicine.name}</div>
+                          </td>
+                          <td className="px-6 py-4 text-gray-900">{medicine.category}</td>
+                          <td className="px-6 py-4 text-gray-900">2025-03-25</td>
+                          <td className="px-6 py-4 text-gray-900">
+                            {medicine.expiry === "N/A" ? "2027-03-25" : medicine.expiry}
+                          </td>
+                          <td className="px-6 py-4 text-gray-900 font-medium">{medicine.stock}</td>
+                          <td className="px-3 py-4">
+                            <div className="flex items-center justify-center space-x-1">
+                              <button
+                                onClick={() => handleEdit(item.id)}
+                                className="text-gray-500 hover:text-blue-700 p-1 transition-colors"
+                                title="Edit">
+                                <SquarePen className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(item.id)}
+                                className="text-red-500 hover:text-red-700 p-1 rounded-full"
+                                title="Delete">
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => handleDispense(item.id)}
+                                className="text-gray-700 hover:text-green-700 p-1 rounded-full"
+                                title="Dispense">
+                                <HandCoins className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {getMedicinesForBranch().length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">
+                        {searchTerm ? 'No medicines found matching your search.' : 'No medicines available in this branch.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Add Medicine Button */}
+              <div className="flex justify-end mt-8 flex-shrink-0">
+                <button 
+                  className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200"
+                  onClick={() => console.log('Add Medicine clicked')}
+                >
+                  ADD MEDICINE
+                </button>
+              </div>
+                  
+              {/* Add Medicine Button */}
+              <div className="flex justify-end mt-8 flex-shrink-0">
+                <button 
+                  className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200"
+                  onClick={() => console.log('Add Medicine clicked')}
+                >
+                  ADD MEDICINE
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+export default StocksPage;
