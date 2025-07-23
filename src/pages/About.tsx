@@ -1,27 +1,38 @@
 import React from "react";
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bell, 
-  User,
+import { useNavigate } from "react-router-dom";
+import {
+  Bell,
+  User as UserIcon,
   LayoutDashboard,
   Archive,
   FileText,
   History,
-  ShieldQuestion
-} from 'lucide-react';
+  ShieldQuestion,
+} from "lucide-react";
 
-export default function HistoryPage() {
+/**
+ * Static profile info for now. Replace with real user data once you have auth context.
+ */
+interface UserProfile {
+  name: string;
+  role: string;
+  address: string;
+}
+
+const mockUser: UserProfile = {
+  name: "John Doe",
+  role: "Nurse",
+  address: "Fr Selga, Davao City, Philippines",
+};
+
+/**
+ * About Page (protected)
+ *
+ * Redirects to "/" (login) if `isLoggedIn` is not found in localStorage.
+ */
+const About: React.FC = () => {
   const navigate = useNavigate();
 
-  // Redirect if not logged in
-    useEffect(() => {
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      if (!isLoggedIn) {
-        navigate("/"); // redirect to login
-      }
-    }, [navigate]);
-
-    
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -30,44 +41,56 @@ export default function HistoryPage() {
         <div className="p-6 mt-4 border-b border-white">
           <div className="flex flex-col items-center mb-2">
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <User className="w-6 h-6 text-purple-800" />
+              <UserIcon className="w-6 h-6 text-purple-800" />
             </div>
             <div className="flex flex-col items-center">
-              <p className="text-[20px] font-semibold">John Doe</p>
-              <p className="text-sm">Nurse</p>
+              <p className="text-[20px] font-semibold">{mockUser.name}</p>
+              <p className="text-sm">{mockUser.role}</p>
             </div>
           </div>
-          <p className="text-center text-xs">Fr Selga, Davao City, Philippines</p>
+          <p className="text-center text-xs">{mockUser.address}</p>
         </div>
 
         {/* Navigation */}
         <nav className="mt-10">
           <div className="px-4 space-y-6">
-            <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
-              onClick={() => navigate('/Dashboard')}>
+            <button
+              type="button"
+              className="flex w-full items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer text-left"
+              onClick={() => navigate("/")}
+            >
               <LayoutDashboard className="w-5 h-5 mr-3 text-white" />
               <p className="text-sm font-medium text-white">Dashboard</p>
-            </div>
+            </button>
 
-            <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
-              onClick={() => navigate('/Stocks')}>
+            <button
+              type="button"
+              className="flex w-full items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer text-left"
+              onClick={() => navigate("/Stocks")}
+            >
               <Archive className="w-5 h-5 mr-3 text-white" />
               <p className="text-sm text-white">Stocks</p>
-            </div>
+            </button>
 
-            <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
-              onClick={() => navigate('/Reports')}>
+            <button
+              type="button"
+              className="flex w-full items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer text-left"
+              onClick={() => navigate("/Reports")}
+            >
               <FileText className="w-5 h-5 mr-3 text-white" />
               <p className="text-sm text-white">Reports</p>
-            </div>
+            </button>
 
-            <div className="flex items-center px-4 py-3 bg-[#77536A] rounded-lg">
+            <button
+              type="button"
+              className="flex w-full items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer text-left"
+              onClick={() => navigate("/History")}
+            >
               <History className="w-5 h-5 mr-3 text-white" />
               <p className="text-sm text-white">History</p>
-            </div>
+            </button>
 
-            <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
-            onClick={() => navigate('/About')}>
+            <div className="flex items-center px-4 py-3 bg-[#77536A] rounded-lg">
               <ShieldQuestion className="w-5 h-5 mr-3 text-white" />
               <p className="text-sm text-white">About</p>
             </div>
@@ -76,19 +99,22 @@ export default function HistoryPage() {
 
         {/* Logout */}
         <div className="absolute bottom-6 left-6">
-          <div className="flex items-center hover:text-white cursor-pointer"
+          <button
+            type="button"
+            className="flex items-center hover:text-white cursor-pointer"
             onClick={() => {
               localStorage.removeItem("isLoggedIn");
               navigate("/");
-            }}>
+            }}
+          >
             <div className="w-5 h-5 mr-3">
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                <path d="M16 13v-2H7V8l-5 4 5 4v-3z"/>
-                <path d="M20 3h-9c-1.103 0-2 .897-2 2v4h2V5h9v14h-9v-4H9v4c0 1.103.897 2 2 2h9c1.103 0 2-.897 2-2V5c0-1.103-.897-2-2-2z"/>
+                <path d="M16 13v-2H7V8l-5 4 5 4v-3z" />
+                <path d="M20 3h-9c-1.103 0-2 .897-2 2v4h2V5h9v14h-9v-4H9v4c0 1.103.897 2 2 2h9c1.103 0 2-.897 2-2V5c0-1.103-.897-2-2-2z" />
               </svg>
             </div>
             <p className="text-sm">Logout</p>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -97,9 +123,10 @@ export default function HistoryPage() {
         {/* Header */}
         <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3">
           <div className="flex items-center justify-between">
-            <span></span>
+            <span />
             <div className="flex items-center">
-              <img src="Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
+              {/* Update path to match your asset handling */}
+              <img src="Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2" />
               <h1 className="text-white text-[28px] font-semibold">MEDITRACK</h1>
             </div>
             <div className="flex items-center">
@@ -109,9 +136,10 @@ export default function HistoryPage() {
         </header>
 
         {/* Main Dashboard Container */}
-          
-          
+        {/* TODO: Add About-page content here */}
       </div>
     </div>
   );
-}
+};
+
+export default About;

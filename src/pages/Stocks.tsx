@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useEffect } from 'react';
 import { Bell, 
   User, 
   ArrowLeft, 
@@ -15,8 +14,28 @@ import { Bell,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+// Type definitions
+interface Medicine {
+  id: number;
+  name: string;
+  category: string;
+  stock: number;
+  minStock: number;
+  expiry: string;
+}
+
+interface ClinicBranch {
+  id: number;
+  name: string;
+  suffix: string;
+}
+
+interface BranchMedicines {
+  [key: number]: Medicine[];
+}
+
 // Mock medicine data for each branch
-const branchMedicines = {
+const branchMedicines: BranchMedicines = {
   1: [ // Fr Selga Campus
     { id: 1, name: "Paracetamol 500mg", category: "Pain Relief", stock: 150, minStock: 50, expiry: "2025-12-15" },
     { id: 2, name: "Amoxicillin 250mg", category: "Antibiotic", stock: 75, minStock: 30, expiry: "2025-08-20" },
@@ -53,23 +72,15 @@ const branchMedicines = {
   ]
 };
 
-function StocksPage() {
-  const [currentView, setCurrentView] = useState('main');
-  const [selectedBranch, setSelectedBranch] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+const StocksPage: React.FC = () => {
+  const [currentView, setCurrentView] = useState<'main' | 'branch'>('main');
+  const [selectedBranch, setSelectedBranch] = useState<ClinicBranch | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   
   const navigate = useNavigate();
 
-  // Redirect if not logged in
-    useEffect(() => {
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      if (!isLoggedIn) {
-        navigate("/"); // redirect to login
-      }
-    }, [navigate]);
-
   // Data for clinic branches
-  const clinicBranches = [
+  const clinicBranches: ClinicBranch[] = [
     {
       id: 1,
       name: "Fr Selga Campus, Davao City, Philippines",
@@ -98,7 +109,7 @@ function StocksPage() {
   ];
 
   // Get current date and time
-  const getCurrentDateTime = () => {
+  const getCurrentDateTime = (): { date: string; time: string } => {
     const now = new Date();
     const date = now.toLocaleDateString('en-US', { 
       year: 'numeric', 
@@ -116,31 +127,48 @@ function StocksPage() {
 
   const { date, time } = getCurrentDateTime();
 
-  const handleViewClick = (branchId) => {
+  const handleViewClick = (branchId: number): void => {
     const branch = clinicBranches.find(b => b.id === branchId);
-    setSelectedBranch(branch);
-    setCurrentView('branch');
-    setSearchTerm('');
+    if (branch) {
+      setSelectedBranch(branch);
+      setCurrentView('branch');
+      setSearchTerm('');
+    }
   };
 
-  const handleBackToMain = () => {
+  const handleBackToMain = (): void => {
     setCurrentView('main');
     setSelectedBranch(null);
     setSearchTerm('');
   };
 
-  const handleRequestMedicine = () => {
+  const handleRequestMedicine = (): void => {
     console.log("Request medicine clicked");
     // Add your request medicine logic here
   };
 
-  const handleLogout = () => {
+  const handleLogout = (): void => {
     console.log("Logout clicked");
     // Add your logout logic here
   };
 
+  const handleEdit = (id: number): void => {
+    console.log(`Edit medicine with id: ${id}`);
+    // Add your edit logic here
+  };
+
+  const handleDelete = (id: number): void => {
+    console.log(`Delete medicine with id: ${id}`);
+    // Add your delete logic here
+  };
+
+  const handleDispense = (id: number): void => {
+    console.log(`Dispense medicine with id: ${id}`);
+    // Add your dispense logic here
+  };
+
   // Get medicines for selected branch
-  const getMedicinesForBranch = () => {
+  const getMedicinesForBranch = (): Medicine[] => {
     if (!selectedBranch) return [];
     const medicines = branchMedicines[selectedBranch.id] || [];
     
@@ -154,12 +182,13 @@ function StocksPage() {
     return medicines;
   };
 
-  const isLowStock = (stock, minStock) => stock <= minStock;
-  const isExpiringSoon = (expiry) => {
+  const isLowStock = (stock: number, minStock: number): boolean => stock <= minStock;
+  
+  const isExpiringSoon = (expiry: string): boolean => {
     if (expiry === "N/A") return false;
     const expiryDate = new Date(expiry);
     const today = new Date();
-    const diffTime = expiryDate - today;
+    const diffTime = expiryDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays <= 90; // Expiring within 3 months
   };
@@ -187,7 +216,7 @@ function StocksPage() {
         <nav className="mt-10">
           <div className="px-4 space-y-6">
             <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer"
-              onClick={() => navigate('/Dashboard')}>
+              onClick={() => navigate('/')}>
               <LayoutDashboard className="w-5 h-5 mr-3 text-white" />
               <p className="text-sm font-medium text-white">Dashboard</p>
             </div>
@@ -235,7 +264,6 @@ function StocksPage() {
         </div>
       </div>
       )}
-
 
       {/* Main Content */}
       <div className={`${currentView === 'main' ? 'ml-64' : ''} flex-1 flex flex-col h-screen`}>
@@ -289,7 +317,8 @@ function StocksPage() {
                       )}
                     </div>
                     <button onClick={() => handleViewClick(branch.id)}
-                      className="w-[90px] h-[40px] mr-7 bg-[#a3386c] hover:bg-[#8a2f5a] rounded-[10px] text-l font-semibold text-white transition-colors duration-200 cursor-pointer"
+                      className="w-[90px] h-[40px] mr-7 bg-[#a3386c] hover:bg-[#8a2f5a] rounded-[10px] text-l font-semibold 
+                      text-white transition-colors duration-200 cursor-pointer"
                     >
                       View
                     </button>
@@ -301,7 +330,8 @@ function StocksPage() {
             {/* Request Medicine Button */}
             <div className="flex justify-end mt-8">
               <button onClick={handleRequestMedicine}
-                className="w-[180px] h-[40px] border border-solid border-[#a3386c] hover:bg-[#a3386c] hover:text-white rounded-[10px] text-l font-semibold text-[#a3386c] transition-colors duration-200 cursor-pointer"
+                className="w-[180px] h-[40px] border border-solid border-[#a3386c] hover:bg-[#a3386c] hover:text-white rounded-[10px] 
+                text-l font-semibold text-[#a3386c] transition-colors duration-200 cursor-pointer"
               >
                 Request Medicine
               </button>
@@ -328,7 +358,7 @@ function StocksPage() {
             </div>
 
             {/* Stock Available List Section - Flexible height */}
-            <div className="bg-white px-8 py-6 flex-1 flex flex-col overflow-hidden" style={{ minHeight: '600px' }}>
+            <div className="bg-white px-8 py-6 flex-1 flex flex-col overflow-hidden" style={{ minHeight: '528px' }}>
               {/* Title and Search */}
               <div className="flex items-center justify-between mb-6 flex-shrink-0">
                 <div>
@@ -341,8 +371,9 @@ function StocksPage() {
                     type="text"
                     placeholder="Search Medicine"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#a3386c] focus:border-transparent text-sm"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                    className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#a3386c] 
+                    focus:border-transparent text-sm"
                   />
                 </div>
               </div>
@@ -362,7 +393,7 @@ function StocksPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {getMedicinesForBranch().map((medicine, index) => (
+                      {getMedicinesForBranch().map((medicine) => (
                         <tr key={medicine.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4">
                             <div className="text-gray-900 font-medium">
@@ -382,19 +413,19 @@ function StocksPage() {
                           <td className="px-3 py-4">
                             <div className="flex items-center justify-center space-x-1">
                               <button
-                                onClick={() => handleEdit(item.id)}
+                                onClick={() => handleEdit(medicine.id)}
                                 className="text-gray-500 hover:text-blue-700 p-1 transition-colors"
                                 title="Edit">
                                 <SquarePen className="w-5 h-5" />
                               </button>
                               <button
-                                onClick={() => handleDelete(item.id)}
+                                onClick={() => handleDelete(medicine.id)}
                                 className="text-red-500 hover:text-red-700 p-1 rounded-full"
                                 title="Delete">
                                 <Trash2 className="w-5 h-5" />
                               </button>
                               <button
-                                onClick={() => handleDispense(item.id)}
+                                onClick={() => handleDispense(medicine.id)}
                                 className="text-gray-700 hover:text-green-700 p-1 rounded-full"
                                 title="Dispense">
                                 <HandCoins className="w-5 h-5" />
@@ -419,17 +450,8 @@ function StocksPage() {
               {/* Add Medicine Button */}
               <div className="flex justify-end mt-8 flex-shrink-0">
                 <button 
-                  className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200"
-                  onClick={() => console.log('Add Medicine clicked')}
-                >
-                  ADD MEDICINE
-                </button>
-              </div>
-                  
-              {/* Add Medicine Button */}
-              <div className="flex justify-end mt-8 flex-shrink-0">
-                <button 
-                  className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200"
+                  className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 
+                  cursor-pointer"
                   onClick={() => console.log('Add Medicine clicked')}
                 >
                   ADD MEDICINE
@@ -441,6 +463,6 @@ function StocksPage() {
       </div>
     </div>
   );
-}
+};
 
 export default StocksPage;
