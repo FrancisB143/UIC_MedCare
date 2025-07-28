@@ -17,7 +17,7 @@ import {
     Menu
 } from 'lucide-react';
 
-const About: React.FC = () => {
+const Print: React.FC = () => {
     const navigate = useNavigate();
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
@@ -36,8 +36,49 @@ const About: React.FC = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
+    // Function to trigger the browser's print dialog
+    const handlePrint = () => {
+        window.print();
+    };
+
+    // Sample data for the printable report
+    const printData = [
+        { name: 'RITEMED Paracetamol 500mg', stock: 150, expiration: '2026-12-31' },
+        { name: 'DECOLGEN Forte', stock: 45, expiration: '2025-11-20' },
+        { name: 'Cetirizine (Allerkid)', stock: 80, expiration: '2027-05-10' },
+        { name: 'Neozep Forte', stock: 120, expiration: '2026-08-15' },
+    ];
+
+    const currentDate = "July 28, 2025";
+
     return (
         <>
+            {/* These styles will be applied only when printing */}
+            <style>
+                {`
+                    @media print {
+                        /* Hide everything on the page by default */
+                        body * {
+                            visibility: hidden;
+                        }
+                        /* Then, make the printable area and its children visible */
+                        .printable-area, .printable-area * {
+                            visibility: visible;
+                        }
+                        /* Position the printable area to the top-left corner */
+                        .printable-area {
+                            position: absolute;
+                            left: 0;
+                            top: 0;
+                            width: 100%;
+                        }
+                        /* Hide the print controls when printing */
+                        .print-controls {
+                            display: none;
+                        }
+                    }
+                `}
+            </style>
             <div className="flex h-screen bg-gray-100">
                 {/* Sidebar */}
                 <div className={`fixed top-0 left-0 h-screen bg-gradient-to-b from-[#3D1528] to-[#A3386C] text-white z-20 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
@@ -126,13 +167,13 @@ const About: React.FC = () => {
                                 {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">Reports</p>}
                             </div>
 
-                            <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/Print')}>
+                            {/* Print link - Active in Print */}
+                            <div className="flex items-center px-4 py-3 bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/Print')}>
                                 <Printer className="w-5 h-5 text-white flex-shrink-0" />
                                 {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">Print</p>}
                             </div>
 
-                            {/* About link - Active */}
-                            <div className="flex items-center px-4 py-3 bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/About')}>
+                            <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/About')}>
                                 <ShieldQuestion className="w-5 h-5 text-white flex-shrink-0" />
                                 {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">About</p>}
                             </div>
@@ -160,44 +201,67 @@ const About: React.FC = () => {
                         </div>
                     </header>
 
-                    {/* Main About Container */}
+                    {/* Main Print Container */}
                     <main className="flex-1 p-6 overflow-y-auto bg-white">
-                        <div className="max-w-4xl mx-auto py-8">
-                            <h1 className="text-4xl font-bold text-gray-800 mb-6">About MEDITRACK</h1>
+                        <div className="print-controls">
+                            <h2 className="text-3xl font-normal text-black">Print Documents</h2>
+                            <p className="text-gray-500 mb-6">Select a document type and click print.</p>
 
-                            <div className="bg-white p-8 rounded-lg shadow-lg border border-gray-200">
-                                <h2 className="text-2xl font-semibold text-gray-700 mb-4">Developer Information</h2>
-                                <p className="text-gray-600 mb-4">
-                                    MEDITRACK was developed by a dedicated team of student developers from the University of the Immaculate Conception (UIC) as part of their capstone project.
-                                    Our goal was to create an intuitive and efficient system for managing medical inventory, consultations, and patient records within a clinic setting.
-                                </p>
-                                <p className="text-gray-600 mb-4">
-                                    This system aims to streamline daily operations, reduce manual errors, and provide comprehensive reporting capabilities to enhance the overall efficiency of clinic management.
-                                </p>
-                                <h3 className="text-xl font-semibold text-gray-700 mb-2">Our Team:</h3>
-                                <ul className="list-disc list-inside text-gray-600 mb-4">
-                                    <li>John Doe - Lead Developer</li>
-                                    <li>Jane Smith - UI/UX Designer</li>
-                                    <li>Peter Jones - Backend Developer</li>
-                                    <li>Alice Brown - Quality Assurance</li>
-                                </ul>
-                                <p className="text-gray-600">
-                                    We are committed to continuous improvement and welcome feedback to make MEDITRACK even better.
-                                </p>
+                            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 mb-8 flex items-end gap-6">
+                                <div>
+                                    <label htmlFor="documentType" className="block text-sm font-medium text-gray-700 mb-1">Document to Print</label>
+                                    <select id="documentType" className="w-64 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#A3386C] focus:border-[#A3386C]">
+                                        <option>Inventory Report</option>
+                                        <option>Dispensing Log</option>
+                                        <option>Patient Record</option>
+                                        <option>Low Stock Report</option>
+                                    </select>
+                                </div>
+                                <button onClick={handlePrint} className="bg-[#A3386C] text-white px-6 py-2 rounded-md hover:bg-[#862d59] transition-colors flex items-center gap-2">
+                                    <Printer className="w-4 h-4"/>
+                                    Preview & Print
+                                </button>
                             </div>
+                        </div>
 
-                            <div className="mt-8 bg-white p-8 rounded-lg shadow-lg border border-gray-200">
-                                <h2 className="text-2xl font-semibold text-gray-700 mb-4">Version Information</h2>
-                                <p className="text-gray-600">
-                                    <strong>Version:</strong> 1.0.0 (Initial Release)
-                                </p>
-                                <p className="text-gray-600">
-                                    <strong>Release Date:</strong> July 28, 2025
-                                </p>
-                                <p className="text-gray-600 mt-4">
-                                    Thank you for using MEDITRACK!
-                                </p>
-                            </div>
+                        {/* This is the area that will be printed */}
+                        <div className="printable-area bg-white p-8 rounded-lg shadow-lg border border-gray-200 max-w-4xl mx-auto">
+                            <header className="flex items-center justify-between pb-4 border-b-2 border-black">
+                                <div className="flex items-center gap-4">
+                                    <img src="/Logo.png" alt="Logo" className="h-16" />
+                                    <div>
+                                        <h1 className="text-2xl font-bold text-black">MEDITRACK</h1>
+                                        <p className="text-sm text-gray-600">University Clinic, Davao City, Philippines</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <h2 className="text-xl font-semibold">Inventory Report</h2>
+                                    <p className="text-sm text-gray-600">Date: {currentDate}</p>
+                                </div>
+                            </header>
+
+                            <table className="min-w-full mt-6">
+                                <thead className="border-b border-gray-300">
+                                    <tr>
+                                        <th className="py-2 text-left text-sm font-semibold text-gray-700">MEDICINE NAME</th>
+                                        <th className="py-2 text-left text-sm font-semibold text-gray-700">CURRENT STOCK</th>
+                                        <th className="py-2 text-left text-sm font-semibold text-gray-700">EXPIRATION DATE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {printData.map((item, index) => (
+                                        <tr key={index} className="border-b border-gray-200">
+                                            <td className="py-3 text-sm text-gray-800">{item.name}</td>
+                                            <td className="py-3 text-sm text-gray-800">{item.stock}</td>
+                                            <td className="py-3 text-sm text-gray-800">{item.expiration}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
+                                <p>Generated by John Doe</p>
+                                <p>This is a system-generated document from MEDITRACK.</p>
+                            </footer>
                         </div>
                     </main>
                 </div>
@@ -206,4 +270,4 @@ const About: React.FC = () => {
     );
 };
 
-export default About;
+export default Print;
