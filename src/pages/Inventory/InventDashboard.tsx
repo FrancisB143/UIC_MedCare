@@ -23,12 +23,25 @@ interface DateTimeData {
     time: string;
 }
 
+interface Notification {
+    id: number;
+    type: 'updatedMedicine' | 'medicineRequest';
+    message: string;
+    time: string;
+}
+
 const MeditrackDashboard: React.FC = () => {
     const navigate = useNavigate();
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
-    // Set isInventoryOpen to true by default to open the submenu
     const [isInventoryOpen, setInventoryOpen] = useState(true);
+    const [isNotificationOpen, setNotificationOpen] = useState(false); // New state for notification dropdown
+
+    // Mock notification data
+    const notifications: Notification[] = [
+        { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
+        { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
+    ];
 
     // Get current date and time
     const getCurrentDateTime = (): DateTimeData => {
@@ -60,6 +73,10 @@ const MeditrackDashboard: React.FC = () => {
 
     const toggleSidebar = () => {
         setSidebarOpen(!isSidebarOpen);
+    };
+
+    const toggleNotification = () => {
+        setNotificationOpen(!isNotificationOpen);
     };
 
     return (
@@ -193,17 +210,55 @@ const MeditrackDashboard: React.FC = () => {
                         </button>
 
                         <div className="flex items-center">
+                            {/* Assuming Logo.png is in the public folder or accessible path */}
                             <img src="../Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
                             <h1 className="text-white text-[28px] font-semibold">MEDITRACK</h1>
                         </div>
 
-                        <div className="flex items-center">
-                            <Bell className="w-6 h-6 text-white cursor-pointer" />
+                        {/* Notification Bell and Dropdown */}
+                        <div className="relative">
+                            <Bell className="w-6 h-6 text-white cursor-pointer" onClick={toggleNotification} />
+                            {isNotificationOpen && (
+                                <div className="absolute right-0 mt-2 w-100 bg-white rounded-lg shadow-lg z-30">
+                                    <div className="p-4">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="text-lg font-semibold text-gray-800">Recent Notification History</h3>
+                                            <button className="text-sm text-[#A3386C] hover:underline" onClick={() => handleNavigation('../Notification')}>See All</button>
+                                        </div>
+                                        {notifications.length === 0 ? (
+                                            <p className="text-sm text-gray-500 text-center">No new notifications.</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {notifications.map(notification => (
+                                                    <div key={notification.id} className="flex items-center p-2 rounded-lg hover:bg-gray-50">
+                                                        {notification.type === 'updatedMedicine' && (
+                                                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                                                {/* Example icon, replace with actual if available */}
+                                                                <img src="https://via.placeholder.com/24/0000FF/FFFFFF?text=M" alt="Medicine Icon" className="w-5 h-5" />
+                                                            </div>
+                                                        )}
+                                                        {notification.type === 'medicineRequest' && (
+                                                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                                                                {/* Example icon, replace with actual if available */}
+                                                                <img src="https://via.placeholder.com/24/008000/FFFFFF?text=R" alt="Request Icon" className="w-5 h-5" />
+                                                            </div>
+                                                        )}
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-medium text-gray-800">{notification.message}</p>
+                                                            <p className="text-xs text-gray-500">{notification.time}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </header>
 
-                {/* Main Dashboard Container - (Your existing content remains unchanged) */}
+                {/* Main Dashboard Container*/}
                 <main className="bg-white main-dashboard p-6 overflow-y-auto">
                     {/* Date and Time */}
                     <div className="flex justify-center mb-4">

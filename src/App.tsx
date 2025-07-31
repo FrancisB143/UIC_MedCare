@@ -10,6 +10,7 @@ import History from "./pages/Inventory/History";
 import Reports from "./pages/Reports";
 import Print from "./pages/Print";
 import About from "./pages/About";
+import Notification from "./pages/Notification";
 
 const App: React.FC = () => {
   return (
@@ -26,6 +27,7 @@ const App: React.FC = () => {
         <Route path="/reports" element={<Reports />} />
         <Route path="/print" element={<Print />} />
         <Route path="/about" element={<About />} />
+        <Route path="/notification" element={<Notification />} />
       </Routes>
     </Router>
   );

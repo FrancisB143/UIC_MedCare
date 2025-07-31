@@ -235,7 +235,6 @@ const StocksPage: React.FC = () => {
                 {/* Navigation */}
                 <nav className="mt-8">
                     <div className="px-4 space-y-2">
-                        {/* Dashboard - Inactive */}
                         <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/')}>
                             <LayoutDashboard className="w-5 h-5 text-white flex-shrink-0" />
                             {isSidebarOpen && <p className="text-sm font-medium text-white ml-3 whitespace-nowrap">Dashboard</p>}

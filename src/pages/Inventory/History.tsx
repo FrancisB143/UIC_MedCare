@@ -6,7 +6,7 @@ import {
     LayoutDashboard,
     Archive,
     FileText,
-    History as HistoryIcon, // Renamed to avoid conflict with History type
+    History as HistoryIcon,
     ShieldQuestion,
     Search,
     Printer,
@@ -17,7 +17,6 @@ import {
     Menu
 } from 'lucide-react';
 
-// Type definitions for history data
 interface HistoryEntry {
     dateRemoved: string;
     medicineName: string;
@@ -29,7 +28,7 @@ const History: React.FC = () => {
     const navigate = useNavigate();
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
-    // Set isInventoryOpen to true by default to open the submenu
+
     const [isInventoryOpen, setInventoryOpen] = useState(true);
 
     const handleNavigation = (path: string): void => {
@@ -45,7 +44,7 @@ const History: React.FC = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
-    // Data for Inventory History based on the provided image
+    // Dummy Data for Inventory History
     const inventoryHistory: HistoryEntry[] = [
         {
             dateRemoved: "2025-04-30",
