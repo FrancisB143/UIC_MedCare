@@ -35,9 +35,8 @@ const MeditrackDashboard: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(true);
-    const [isNotificationOpen, setNotificationOpen] = useState(false); // New state for notification dropdown
+    const [isNotificationOpen, setNotificationOpen] = useState(false);
 
-    // Mock notification data
     const notifications: Notification[] = [
         { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
         { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
@@ -372,19 +371,19 @@ const MeditrackDashboard: React.FC = () => {
                                 <div className="border-b border-[#a3386c]">
                                     <div className="py-2 px-3 flex items-center justify-between cursor-pointer">
                                         <span className="font-normal text-black text-base">Fever</span>
-                                        <img className="w-[18px] h-[18px]" alt="Arrow" src="/up-arrow.png" />
+                                        <img className="w-[18px] h-[18px]" alt="Arrow" src="../up-arrow.png" />
                                     </div>
                                 </div>
                                 <div className="border-b border-[#a3386c]">
                                     <div className="py-2 px-3 flex items-center justify-between cursor-pointer">
                                         <span className="font-normal text-black text-base">Cold & Flu</span>
-                                        <img className="w-[18px] h-[18px]" alt="Arrow" src="/up-arrow.png" />
+                                        <img className="w-[18px] h-[18px]" alt="Arrow" src="../up-arrow.png" />
                                     </div>
                                 </div>
                                 <div className="border-b border-[#a3386c]">
                                     <div className="py-2 px-3 flex items-center justify-between cursor-pointer">
                                         <span className="font-normal text-black text-base">Allergies</span>
-                                        <img className="w-[18px] h-[18px]" alt="Arrow" src="/down-arrow.png" />
+                                        <img className="w-[18px] h-[18px]" alt="Arrow" src="../down-arrow.png" />
                                     </div>
                                 </div>
                             </div>
