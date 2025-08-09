@@ -1,26 +1,75 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from 'react';
+import NotificationBell, { Notification as NotificationType } from '../components/NotificationBell';
+import Sidebar from '../components/Sidebar';
 import { router } from '@inertiajs/react';
-import { 
-    Bell, 
-    User, 
-    LayoutDashboard,
-    Archive,
-    FileText,
-    History,
-    ShieldQuestion,
-    Search,
-    Printer,
-    GraduationCap,
-    Briefcase,
-    Users,
-    ChevronDown,
-    Menu
-} from 'lucide-react';
+import { Menu } from 'lucide-react';
+
+interface DateTimeData {
+    date: string;
+    time: string;
+}
+
+function getCurrentDateTime(): DateTimeData {
+    const now = new Date();
+    const date = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+    return { date, time };
+}
+
+const allChartData = {
+    'March 2025': [
+        { name: 'Ibuprofen', value: 20, color: '#A855F7' },
+        { name: 'Paracetamol', value: 60, color: '#3B82F6' },
+        { name: 'Decolgen', value: 30, color: '#F97316' },
+        { name: 'Aspirin', value: 45, color: '#10B981' },
+        { name: 'Amoxicillin', value: 15, color: '#F59E0B' }
+    ],
+    'April 2025': [
+        { name: 'Ibuprofen', value: 35, color: '#A855F7' },
+        { name: 'Paracetamol', value: 50, color: '#3B82F6' },
+        { name: 'Decolgen', value: 25, color: '#F97316' },
+        { name: 'Aspirin', value: 55, color: '#10B981' },
+        { name: 'Amoxicillin', value: 20, color: '#F59E0B' }
+    ],
+    'May 2025': [
+        { name: 'Ibuprofen', value: 10, color: '#A855F7' },
+        { name: 'Paracetamol', value: 75, color: '#3B82F6' },
+        { name: 'Decolgen', value: 40, color: '#F97316' },
+        { name: 'Aspirin', value: 30, color: '#10B981' },
+        { name: 'Amoxicillin', value: 25, color: '#F59E0B' }
+    ]
+};
+
+type MonthYear = keyof typeof allChartData;
+
+const commonMedicines = [
+    { id: 1, name: 'RITEMED Paracetamol 500mg x 20 tablets', image: 'https://placehold.co/60x40/3B82F6/FFFFFF?text=P' },
+    { id: 2, name: 'Decolgen Forte 25mg / 2mg / 500mg', image: 'https://placehold.co/60x40/F97316/FFFFFF?text=D' },
+    { id: 3, name: 'MEDICOL Ibuprofen 200mg', image: 'https://placehold.co/60x40/A855F7/FFFFFF?text=I' },
+    { id: 4, name: 'Generic Aspirin 81mg', image: 'https://placehold.co/60x40/10B981/FFFFFF?text=A' },
+    { id: 5, name: 'Amoxicillin 500mg Capsules', image: 'https://placehold.co/60x40/F59E0B/FFFFFF?text=A' }
+];
 
 const Reports: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(false);
+    const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
+    const [selectedMonthYear, setSelectedMonthYear] = useState<MonthYear>('March 2025');
+
+    const notifications: NotificationType[] = [
+        { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
+        { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
+    ];
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setDateTime(getCurrentDateTime());
+        }, 1000);
+        return () => {
+            clearInterval(timer);
+        };
+    }, []);
 
     const handleNavigation = (path: string): void => {
         router.visit(path);
@@ -35,130 +84,21 @@ const Reports: React.FC = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
-    const reportData = [
-        { id: 1, name: 'RITEMED Paracetamol 500mg', category: 'Pain Reliever', stock: 150, status: 'High' },
-        { id: 2, name: 'DECOLGEN Forte', category: 'Cold & Flu', stock: 45, status: 'Low' },
-        { id: 3, name: 'Cetirizine (Allerkid)', category: 'Allergies', stock: 80, status: 'Medium' },
-        { id: 4, name: 'Amoxicillin 250mg', category: 'Antibiotic', stock: 0, status: 'Out of Stock' },
-    ];
+    const chartData = allChartData[selectedMonthYear] || [];
+    const { date, time } = dateTime;
 
     return (
         <div className="flex h-screen bg-gray-100">
-            {/* Sidebar */}
-            <div className={`fixed top-0 left-0 h-screen bg-gradient-to-b from-[#3D1528] to-[#A3386C] text-white z-20 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
-                {/* Profile */}
-                <div className="p-6 mt-4 border-b border-white/50">
-                    <div className="flex flex-col items-center mb-2">
-                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-                            <User className="w-6 h-6 text-[#A3386C]" />
-                        </div>
-                        <div className={`flex flex-col items-center transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                            <p className="text-[20px] font-semibold">John Doe</p>
-                            <p className="text-sm">Nurse</p>
-                        </div>
-                    </div>
-                    <p className={`text-center text-xs transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>Fr Selga, Davao City</p>
-                </div>
-
-                {/* Navigation */}
-                <nav className="mt-8">
-                    <div className="px-4 space-y-2">
-                        <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/')}>
-                            <LayoutDashboard className="w-5 h-5 text-white flex-shrink-0" />
-                            {isSidebarOpen && <p className="text-sm font-medium text-white ml-3 whitespace-nowrap">Dashboard</p>}
-                        </div>
-
-                        {/* Search Submenu */}
-                        <div>
-                            <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => setSearchOpen(!isSearchOpen)}>
-                                <Search className="w-5 h-5 text-white flex-shrink-0" />
-                                {isSidebarOpen && (
-                                    <div className="flex justify-between w-full items-center">
-                                        <p className="text-sm text-white ml-3 whitespace-nowrap">Search</p>
-                                        <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isSearchOpen ? 'rotate-180' : ''}`} />
-                                    </div>
-                                )}
-                            </div>
-                            {isSidebarOpen && isSearchOpen && (
-                                <div className="mt-1 space-y-1 pl-8">
-                                    <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/search/student')}>
-                                        <GraduationCap className="w-5 h-5 text-white flex-shrink-0" />
-                                        <p className="text-sm text-white ml-3 whitespace-nowrap">Student</p>
-                                    </div>
-                                    <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/search/employee')}>
-                                        <Briefcase className="w-5 h-5 text-white flex-shrink-0" />
-                                        <p className="text-sm text-white ml-3 whitespace-nowrap">Employee</p>
-                                    </div>
-                                    <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/search/community')}>
-                                        <Users className="w-5 h-5 text-white flex-shrink-0" />
-                                        <p className="text-sm text-white ml-3 whitespace-nowrap">Community</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Inventory Submenu */}
-                        <div>
-                            <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => setInventoryOpen(!isInventoryOpen)}>
-                                <Archive className="w-5 h-5 text-white flex-shrink-0" />
-                                {isSidebarOpen && (
-                                    <div className="flex justify-between w-full items-center">
-                                        <p className="text-sm text-white ml-3 whitespace-nowrap">Inventory</p>
-                                        <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isInventoryOpen ? 'rotate-180' : ''}`} />
-                                    </div>
-                                )}
-                            </div>
-                            {isSidebarOpen && isInventoryOpen && (
-                                <div className="mt-1 space-y-1 pl-8">
-                                    <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/inventory/dashboard')}>
-                                        <LayoutDashboard className="w-5 h-5 text-white flex-shrink-0" />
-                                        <p className="text-sm text-white ml-3 whitespace-nowrap">Dashboard</p>
-                                    </div>
-                                    <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/inventory/stocks')}>
-                                        <Archive className="w-5 h-5 text-white flex-shrink-0" />
-                                        <p className="text-sm text-white ml-3 whitespace-nowrap">Stocks</p>
-                                    </div>
-                                    <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/inventory/history')}>
-                                        <History className="w-5 h-5 text-white flex-shrink-0" />
-                                        <p className="text-sm text-white ml-3 whitespace-nowrap">History</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Active Link */}
-                        <div className="flex items-center px-4 py-3 bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/Reports')}>
-                            <FileText className="w-5 h-5 text-white flex-shrink-0" />
-                            {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">Reports</p>}
-                        </div>
-
-                        <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/Print')}>
-                            <Printer className="w-5 h-5 text-white flex-shrink-0" />
-                            {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">Print</p>}
-                        </div>
-
-                        <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/About')}>
-                            <ShieldQuestion className="w-5 h-5 text-white flex-shrink-0" />
-                            {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">About</p>}
-                        </div>
-                    </div>
-                </nav>
-
-                {/* Logout */}
-                <div className="absolute bottom-6 left-0 right-0 px-4">
-                    <div className={`flex items-center p-3 hover:bg-[#77536A] rounded-lg cursor-pointer ${!isSidebarOpen && 'justify-center'}`} onClick={handleLogout}>
-                        <div className="w-5 h-5 flex-shrink-0">
-                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                <path d="M16 13v-2H7V8l-5 4 5 4v-3z"/>
-                                <path d="M20 3h-9c-1.103 0-2 .897-2 2v4h2V5h9v14h-9v-4H9v4c0 1.103.897 2 2 2h9c1.103 0 2-.897 2-2V5c0-1.103-.897-2-2-2z"/>
-                            </svg>
-                        </div>
-                        {isSidebarOpen && <p className="text-sm ml-3 whitespace-nowrap">Logout</p>}
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Content */}
+            <Sidebar
+                isSidebarOpen={isSidebarOpen}
+                isSearchOpen={isSearchOpen}
+                setSearchOpen={setSearchOpen}
+                isInventoryOpen={isInventoryOpen}
+                setInventoryOpen={setInventoryOpen}
+                handleNavigation={handleNavigation}
+                handleLogout={handleLogout}
+                activeMenu="reports"
+            />
             <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
                 <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3 z-10">
                     <div className="flex items-center justify-between">
@@ -169,74 +109,104 @@ const Reports: React.FC = () => {
                             <img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
-                        <div className="flex items-center">
-                            <Bell className="w-6 h-6 text-white cursor-pointer" />
-                        </div>
+                        <NotificationBell notifications={notifications} onSeeAll={() => handleNavigation('../Notification')} />
                     </div>
                 </header>
-
                 <main className="flex-1 p-6 overflow-y-auto bg-white">
-                    <div className="mb-6">
-                        <h2 className="text-3xl font-normal text-black">Generate Reports</h2>
-                        <p className="text-gray-500">Select criteria to generate and view reports.</p>
+                    <div className="flex flex-col items-center mb-8">
+                        <p className="text-[22px] font-normal text-black">{date}</p>
+                        <p className="text-[17px] text-base text-gray-500 mt-1">{time}</p>
+                        <div className="w-[130px] h-0.5 mt-3 bg-[#A3386C]"></div>
                     </div>
-
-                    <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 mb-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
-                            <div>
-                                <label htmlFor="reportType" className="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
-                                <select id="reportType" className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#A3386C] focus:border-[#A3386C]">
-                                    <option>Inventory Summary</option>
-                                    <option>Dispensing History</option>
-                                    <option>Expiration Report</option>
-                                    <option>Low Stock Report</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                                <input type="date" id="startDate" className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#A3386C] focus:border-[#A3386C]" />
-                            </div>
-                            <div>
-                                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                                <input type="date" id="endDate" className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#A3386C] focus:border-[#A3386C]" />
-                            </div>
-                            <button className="bg-[#A3386C] text-white px-4 py-2 rounded-md hover:bg-[#862d59] transition-colors h-fit">
-                                Generate Report
-                            </button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 className="text-2xl font-normal text-black mb-4">Inventory Summary Report</h3>
-                        <div className="overflow-x-auto border rounded-lg">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medicine Name</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Stock</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {reportData.map((item) => (
-                                        <tr key={item.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.category}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.stock}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                    item.status === 'High' ? 'bg-green-100 text-green-800' :
-                                                    item.status === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                                                    item.status === 'Low' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                    {item.status}
-                                                </span>
-                                            </td>
-                                        </tr>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2">
+                            <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                <h3 className="text-2xl font-normal text-black mb-6">Overview</h3>
+                                <div className="mb-4">
+                                    <p className="text-gray-700 font-medium">Dispensed Medicine</p>
+                                </div>
+                                <div className="mb-6">
+                                    <p className="text-sm text-gray-500 mb-2">Used Medicine</p>
+                                    <select
+                                        value={selectedMonthYear}
+                                        onChange={(e) => setSelectedMonthYear(e.target.value as MonthYear)}
+                                        // --- MODIFIED LINE START ---
+                                        className="text-xl font-normal text-black bg-white border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                                        // --- MODIFIED LINE END ---
+                                        aria-label="Select month and year for chart data"
+                                    >
+                                        {Object.keys(allChartData).map(monthYear => (
+                                            <option key={monthYear} value={monthYear}>
+                                                {monthYear}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="h-72 mb-6 relative">
+                                    <svg className="w-full h-full" viewBox="0 0 400 300">
+                                        <defs>
+                                            <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
+                                                <path d="M 40 0 L 0 0 0 30" fill="none" stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3"/>
+                                            </pattern>
+                                        </defs>
+                                        <rect width="100%" height="100%" fill="url(#grid)" />
+                                        <text x="25" y="250" textAnchor="middle" className="text-xs fill-gray-500">0</text>
+                                        <text x="25" y="200" textAnchor="middle" className="text-xs fill-gray-500">25</text>
+                                        <text x="25" y="150" textAnchor="middle" className="text-xs fill-gray-500">50</text>
+                                        <text x="25" y="100" textAnchor="middle" className="text-xs fill-gray-500">75</text>
+                                        <text x="25" y="50" textAnchor="middle" className="text-xs fill-gray-500">100</text>
+                                        {chartData.map((item, index) => {
+                                            const barWidth = 40;
+                                            const barSpacing = 68;
+                                            const startX = 60 + (index * barSpacing);
+                                            const barHeight = (item.value / 100) * 200;
+                                            const barY = 250 - barHeight;
+                                            return (
+                                                <g key={index}>
+                                                    <rect x={startX} y={barY} width={barWidth} height={barHeight} fill={item.color} rx="4" ry="4" className="hover:opacity-80 transition-opacity cursor-pointer" />
+                                                    <text x={startX + barWidth/2} y="270" textAnchor="middle" className="text-xs fill-gray-500" >
+                                                        {item.name}
+                                                    </text>
+                                                </g>
+                                            );
+                                        })}
+                                    </svg>
+                                </div>
+                                <div className="flex flex-wrap gap-x-6 gap-y-3">
+                                    {chartData.map((item, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: item.color }}></div>
+                                            <span className="text-sm text-gray-700">{item.name}</span>
+                                            <span className="text-sm font-medium text-gray-900">{item.value}%</span>
+                                        </div>
                                     ))}
-                                </tbody>
-                            </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="lg:col-span-1">
+                            <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                <h3 className="text-xl font-normal text-black mb-6">Commonly Used Medicine</h3>
+                                <div className="mb-4">
+                                    <p className="text-sm text-gray-500">Products</p>
+                                </div>
+                                <div className="space-y-4">
+                                    {commonMedicines.map((medicine) => (
+                                        <div key={medicine.id} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                                            <img
+                                                src={medicine.image}
+                                                alt={medicine.name}
+                                                className="w-16 h-12 object-cover rounded border flex-shrink-0"
+                                                onError={(e) => { e.currentTarget.src = 'https://placehold.co/60x40/cccccc/FFFFFF?text=Error'; }}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 leading-snug">
+                                                    {medicine.name}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </main>
