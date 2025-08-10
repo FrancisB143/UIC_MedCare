@@ -1,8 +1,32 @@
 import React, { useState, useEffect } from 'react';
+import { router } from '@inertiajs/react';
+import { Menu, Printer } from 'lucide-react';
 import NotificationBell, { Notification as NotificationType } from '../components/NotificationBell';
 import Sidebar from '../components/Sidebar';
-import { router } from '@inertiajs/react';
-import { Menu } from 'lucide-react';
+
+// Add print-specific styles to the head
+const printStyles = `
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-area, #printable-area * {
+    visibility: visible;
+  }
+  #printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
+`;
+
+const styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerText = printStyles;
+document.head.appendChild(styleSheet);
+
 
 interface DateTimeData {
     date: string;
@@ -16,6 +40,7 @@ function getCurrentDateTime(): DateTimeData {
     return { date, time };
 }
 
+// Data for the bar chart, organized by month and year
 const allChartData = {
     'March 2025': [
         { name: 'Ibuprofen', value: 20, color: '#A855F7' },
@@ -42,6 +67,7 @@ const allChartData = {
 
 type MonthYear = keyof typeof allChartData;
 
+// Data for the list of commonly used medicines
 const commonMedicines = [
     { id: 1, name: 'RITEMED Paracetamol 500mg x 20 tablets', image: 'https://placehold.co/60x40/3B82F6/FFFFFF?text=P' },
     { id: 2, name: 'Decolgen Forte 25mg / 2mg / 500mg', image: 'https://placehold.co/60x40/F97316/FFFFFF?text=D' },
@@ -57,11 +83,13 @@ const Reports: React.FC = () => {
     const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
     const [selectedMonthYear, setSelectedMonthYear] = useState<MonthYear>('March 2025');
 
+    // Dummy data for the notification bell
     const notifications: NotificationType[] = [
         { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
         { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
     ];
 
+    // Effect to update the date and time every second
     useEffect(() => {
         const timer = setInterval(() => {
             setDateTime(getCurrentDateTime());
@@ -71,6 +99,7 @@ const Reports: React.FC = () => {
         };
     }, []);
 
+    // Navigation and logout handlers
     const handleNavigation = (path: string): void => {
         router.visit(path);
     };
@@ -82,6 +111,11 @@ const Reports: React.FC = () => {
 
     const toggleSidebar = () => {
         setSidebarOpen(!isSidebarOpen);
+    };
+
+    const handlePrintReport = () => {
+        console.log(`Preparing to print report for ${selectedMonthYear}...`);
+        window.print();
     };
 
     const chartData = allChartData[selectedMonthYear] || [];
@@ -100,7 +134,7 @@ const Reports: React.FC = () => {
                 activeMenu="reports"
             />
             <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
-                <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3 z-10">
+                <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3 z-10 print:hidden">
                     <div className="flex items-center justify-between">
                         <button onClick={toggleSidebar} className="text-white p-2 rounded-full hover:bg-white/20">
                             <Menu className="w-6 h-6" />
@@ -112,16 +146,25 @@ const Reports: React.FC = () => {
                         <NotificationBell notifications={notifications} onSeeAll={() => handleNavigation('../Notification')} />
                     </div>
                 </header>
-                <main className="flex-1 p-6 overflow-y-auto bg-white">
+                <main id="printable-area" className="flex-1 p-6 overflow-y-auto bg-white">
                     <div className="flex flex-col items-center mb-8">
                         <p className="text-[22px] font-normal text-black">{date}</p>
                         <p className="text-[17px] text-base text-gray-500 mt-1">{time}</p>
                         <div className="w-[130px] h-0.5 mt-3 bg-[#A3386C]"></div>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print:block">
                         <div className="lg:col-span-2">
                             <div className="bg-white border border-gray-200 rounded-lg p-6">
-                                <h3 className="text-2xl font-normal text-black mb-6">Overview</h3>
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="text-2xl font-normal text-black">Overview</h3>
+                                    <button
+                                        onClick={handlePrintReport}
+                                        className="bg-[#A3386C] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#8f2f5c] transition-colors flex items-center gap-2 print:hidden"
+                                    >
+                                        <Printer className="w-4 h-4" />
+                                        Print Report
+                                    </button>
+                                </div>
                                 <div className="mb-4">
                                     <p className="text-gray-700 font-medium">Dispensed Medicine</p>
                                 </div>
@@ -130,9 +173,7 @@ const Reports: React.FC = () => {
                                     <select
                                         value={selectedMonthYear}
                                         onChange={(e) => setSelectedMonthYear(e.target.value as MonthYear)}
-                                        // --- MODIFIED LINE START ---
-                                        className="text-xl font-normal text-black bg-white border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                                        // --- MODIFIED LINE END ---
+                                        className="text-xl font-normal text-black bg-white border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer print:border-none print:p-0"
                                         aria-label="Select month and year for chart data"
                                     >
                                         {Object.keys(allChartData).map(monthYear => (
@@ -183,7 +224,7 @@ const Reports: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        <div className="lg:col-span-1">
+                        <div className="lg:col-span-1 print:hidden">
                             <div className="bg-white border border-gray-200 rounded-lg p-6">
                                 <h3 className="text-xl font-normal text-black mb-6">Commonly Used Medicine</h3>
                                 <div className="mb-4">

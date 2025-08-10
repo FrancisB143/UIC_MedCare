@@ -46,13 +46,13 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, onSe
                             {notifications.map(notification => (
                                 <div key={notification.id} className="flex items-center p-2 rounded-lg hover:bg-gray-50">
                                     {notification.type === 'updatedMedicine' && (
-                                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                                            <img src="https://via.placeholder.com/24/0000FF/FFFFFF?text=M" alt="Medicine Icon" className="w-5 h-5" />
+                                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3 overflow-hidden">
+                                            <img src="/images/medicine.jpg" alt="Medicine Icon" className="w-full h-full object-cover" />
                                         </div>
                                     )}
                                     {notification.type === 'medicineRequest' && (
-                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                                            <img src="https://via.placeholder.com/24/008000/FFFFFF?text=R" alt="Request Icon" className="w-5 h-5" />
+                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3 overflow-hidden">
+                                            <img src="/images/nurse.jpg" alt="Request Icon" className="w-full h-full object-cover" />
                                         </div>
                                     )}
                                     <div className="flex-1">

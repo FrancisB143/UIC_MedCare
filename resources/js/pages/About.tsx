@@ -1,8 +1,47 @@
 import React, { useState } from 'react';
 import NotificationBell, { Notification as NotificationType } from '../components/NotificationBell';
 import { router } from '@inertiajs/react';
-import Sidebar from '../components/Sidebar'; // Import Sidebar
-import { Menu } from 'lucide-react';
+import Sidebar from '../components/Sidebar';
+import { Menu, Facebook, Instagram, Linkedin } from 'lucide-react';
+
+interface CreatorCardProps {
+    image: string;
+    quote: string;
+    name: string;
+    title: string;
+    fbLink: string;
+    igLink: string;
+    liLink: string;
+}
+
+const CreatorCard: React.FC<CreatorCardProps> = ({ image, quote, name, title, fbLink, igLink, liLink }) => (
+    <div className={`relative flex flex-col h-full bg-gradient-to-b from-[#3D1528] to-[#A3386C] text-white p-6 pt-12 rounded-xl shadow-2xl`}>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <img src={image} alt={name} className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg" />
+        </div>
+        <div className="flex-grow">
+            <p className="text-center text-base italic text-gray-300 mb-4">
+                "{quote}"
+            </p>
+        </div>
+        <div className="text-center mt-auto">
+            <p className="font-bold text-white text-lg">{name}</p>
+            <p className="text-sm text-indigo-300 font-semibold">{title}</p>
+            <div className="flex justify-center space-x-4 mt-4">
+                <a href={fbLink} target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white transition-colors duration-200">
+                    <Facebook size={20} />
+                </a>
+                <a href={igLink} target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white transition-colors duration-200">
+                    <Instagram size={20} />
+                </a>
+                <a href={liLink} target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white transition-colors duration-200">
+                    <Linkedin size={20} />
+                </a>
+            </div>
+        </div>
+    </div>
+);
+
 
 const About: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -12,6 +51,63 @@ const About: React.FC = () => {
     const notifications: NotificationType[] = [
         { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
         { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
+    ];
+    
+    const creators = [
+        {
+            image: '/images/nurse.jpg',
+            quote: "Leading the development from concept to deployment, ensuring a robust and scalable architecture for MEDITRACK.",
+            name: 'Henna Marie Barcebal',
+            title: 'Project Manager',
+            fbLink: 'https://facebook.com',
+            igLink: 'https://instagram.com',
+            liLink: 'https://linkedin.com'
+        },
+        {
+            image: '/images/nurse.jpg',
+            quote: "Crafting an intuitive and accessible user experience was my passion. I focused on making the interface clean and easy to navigate.",
+            name: 'Francis Franklin Bangoy',
+            title: 'Programmer',
+            fbLink: 'https://facebook.com',
+            igLink: 'https://instagram.com',
+            liLink: 'https://linkedin.com'
+        },
+        {
+            image: '/images/nurse.jpg',
+            quote: "Building the backbone of the system, I developed the server-side logic and database management for reliable performance.",
+            name: 'Rafael Daniel Bisnar',
+            title: 'UI/UX Designer',
+            fbLink: 'https://facebook.com',
+            igLink: 'https://instagram.com',
+            liLink: 'https://linkedin.com'
+        },
+        {
+            image: '/images/nurse.jpg',
+            quote: "My goal was to ensure a bug-free and reliable application through rigorous testing and quality assurance protocols.",
+            name: 'Sebastian Lex Ampon',
+            title: 'Project Manager',
+            fbLink: 'https://facebook.com',
+            igLink: 'https://instagram.com',
+            liLink: 'https://linkedin.com'
+        },
+        {
+            image: '/images/nurse.jpg',
+            quote: "Designed the database schema for optimal data integrity and efficient query performance, ensuring all medical data is secure.",
+            name: 'David',
+            title: 'Programmer',
+            fbLink: 'https://facebook.com',
+            igLink: 'https://instagram.com',
+            liLink: 'https://linkedin.com'
+        },
+        {
+            image: '/images/nurse.jpg',
+            quote: "Translated the UI/UX designs into a responsive and interactive reality using React, focusing on performance and a smooth user flow.",
+            name: 'Wam Ausan',
+            title: 'Quality Assurance',
+            fbLink: 'https://facebook.com',
+            igLink: 'https://instagram.com',
+            liLink: 'https://linkedin.com'
+        }
     ];
 
     const handleNavigation = (path: string): void => {
@@ -29,7 +125,6 @@ const About: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-gray-100">
-            {/* Sidebar */}
             <Sidebar
                 isSidebarOpen={isSidebarOpen}
                 isSearchOpen={isSearchOpen}
@@ -38,14 +133,12 @@ const About: React.FC = () => {
                 setInventoryOpen={setInventoryOpen}
                 handleNavigation={handleNavigation}
                 handleLogout={handleLogout}
-                activeMenu="about" // <-- Highlight About as active
+                activeMenu="about"
             />
 
-            {/* Main Content */}
             <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
                 <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3 z-10">
                     <div className="flex items-center justify-between">
-                        {/* Sidebar Toggle Button */}
                         <button onClick={toggleSidebar} className="text-white p-2 rounded-full hover:bg-white/20">
                             <Menu className="w-6 h-6" />
                         </button>
@@ -53,43 +146,59 @@ const About: React.FC = () => {
                             <img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
-                        {/* Notification Bell */}
                         <NotificationBell
                             notifications={notifications}
                             onSeeAll={() => handleNavigation('../Notification')}
-                        />                    
+                        />
                     </div>
                 </header>
 
-                <main className="flex-1 p-6 overflow-y-auto bg-white">
-                    <div className="max-w-4xl mx-auto py-8">
-                        <h1 className="text-4xl font-bold text-gray-800 mb-6">About MEDITRACK</h1>
+                <main className="flex-1 p-6 lg:p-8 overflow-y-auto bg-white">
+                    <div className="max-w-7xl mx-auto py-8">
+                        <h1 className="text-4xl font-bold text-gray-800 mb-6">About UIC MediCare</h1>
 
                         <div className="bg-white p-8 rounded-lg shadow-lg border border-gray-200">
                             <h2 className="text-2xl font-semibold text-gray-700 mb-4">Developer Information</h2>
                             <p className="text-gray-600 mb-4">
-                                MEDITRACK was developed by a dedicated team of student developers from the University of the Immaculate Conception (UIC) as part of their capstone project.
-                                Our goal was to create an intuitive and efficient system for managing medical inventory, consultations, and patient records within a clinic setting.
-                            </p>
-                            <p className="text-gray-600 mb-4">
-                                This system aims to streamline daily operations, reduce manual errors, and provide comprehensive reporting capabilities to enhance the overall efficiency of clinic management.
+                                MEDITRACK was developed by a dedicated team of student developers from the University of the Immaculate Conception (UIC) as part of their capstone project. Our goal was to create an intuitive and efficient system for managing medical inventory, consultations, and patient records within a clinic setting.
                             </p>
                             <h3 className="text-xl font-semibold text-gray-700 mb-2">Our Team:</h3>
-                            <ul className="list-disc list-inside text-gray-600 mb-4">
+                            <ul className="list-disc list-inside text-gray-600 mb-4 grid grid-cols-1 sm:grid-cols-2">
                                 <li>John Doe - Lead Developer</li>
                                 <li>Jane Smith - UI/UX Designer</li>
                                 <li>Peter Jones - Backend Developer</li>
                                 <li>Alice Brown - Quality Assurance</li>
+                                <li>Michael Chen - Database Architect</li>
+                                <li>Sophia Gomez - Frontend Specialist</li>
                             </ul>
                             <p className="text-gray-600">
                                 We are committed to continuous improvement and welcome feedback to make MEDITRACK even better.
                             </p>
                         </div>
 
-                        <div className="mt-8 bg-white p-8 rounded-lg shadow-lg border border-gray-200">
+                        {/* --- UPDATED: Simplified layout with a consistent grid gap --- */}
+                        <div className="mt-16">
+                            <h2 className="text-3xl font-bold text-center text-gray-800 mb-16">Meet the Creators</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 px-6">
+                                {creators.map((creator, index) => (
+                                    <CreatorCard
+                                        key={index}
+                                        image={creator.image}
+                                        quote={creator.quote}
+                                        name={creator.name}
+                                        title={creator.title}
+                                        fbLink={creator.fbLink}
+                                        igLink={creator.igLink}
+                                        liLink={creator.liLink}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-16 bg-white p-8 rounded-lg shadow-lg border border-gray-200">
                             <h2 className="text-2xl font-semibold text-gray-700 mb-4">Version Information</h2>
                             <p className="text-gray-600"><strong>Version:</strong> 1.0.0 (Initial Release)</p>
-                            <p className="text-gray-600"><strong>Release Date:</strong> July 28, 2025</p>
+                            <p className="text-gray-600"><strong>Release Date:</strong> August 10, 2025</p>
                             <p className="text-gray-600 mt-4">Thank you for using MEDITRACK!</p>
                         </div>
                     </div>

@@ -42,7 +42,7 @@ const MeditrackDashboard: React.FC = () => {
     useEffect(() => {
         const timer = setInterval(() => {
             setDateTime(getCurrentDateTime());
-        }, 1000); // Update every 1000ms (1 second)
+        }, 1000);
 
         // Cleanup interval on component unmount
         return () => {
@@ -80,7 +80,7 @@ const MeditrackDashboard: React.FC = () => {
                 setInventoryOpen={setInventoryOpen}
                 handleNavigation={handleNavigation}
                 handleLogout={handleLogout}
-                activeMenu="inventory-dashboard" // Now highlights Inventory > Dashboard
+                activeMenu="inventory-dashboard"
             />
 
             {/* Main Content */}
