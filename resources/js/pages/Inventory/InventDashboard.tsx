@@ -9,7 +9,6 @@ interface DateTimeData {
     time: string;
 }
 
-// Move this function above the component
 function getCurrentDateTime(): DateTimeData {
     const now = new Date();
     const date = now.toLocaleDateString('en-US', {
@@ -31,14 +30,13 @@ const MeditrackDashboard: React.FC = () => {
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(true);
     const [isNotificationOpen, setNotificationOpen] = useState(false);
-    const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime()); // Now this works!
+    const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
 
     const notifications: NotificationType[] = [
         { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
         { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
     ];
 
-    // Update time every second
     useEffect(() => {
         const timer = setInterval(() => {
             setDateTime(getCurrentDateTime());

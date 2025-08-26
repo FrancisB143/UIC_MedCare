@@ -156,27 +156,34 @@ const About: React.FC = () => {
                 <main className="flex-1 p-6 lg:p-8 overflow-y-auto bg-white">
                     <div className="max-w-7xl mx-auto py-8">
                         <h1 className="text-4xl font-bold text-gray-800 mb-6">About UIC MediCare</h1>
-
+                        
+                        {/* --- UPDATED SECTION --- */}
                         <div className="bg-white p-8 rounded-lg shadow-lg border border-gray-200">
-                            <h2 className="text-2xl font-semibold text-gray-700 mb-4">Developer Information</h2>
-                            <p className="text-gray-600 mb-4">
-                                MEDITRACK was developed by a dedicated team of student developers from the University of the Immaculate Conception (UIC) as part of their capstone project. Our goal was to create an intuitive and efficient system for managing medical inventory, consultations, and patient records within a clinic setting.
+                            <h2 className="text-2xl font-semibold text-gray-700 mb-4">Overview</h2>
+                            <p className="text-gray-600 mb-6">
+                                The University Clinic is an essential healthcare service provider within the university, ensuring the well-being of students and staff by offering accessible and quality medical care. Rooted in the university’s commitment to holistic education and guided by Catholic values, the clinic operates as a vital support system, addressing health concerns, promoting wellness, and maintaining comprehensive medical records. It aims to create a safe and nurturing environment where students can focus on their academic and personal growth without compromising their health. By integrating technology and best medical practices, the clinic strives to provide efficient and compassionate healthcare services that align with the university's mission of service, justice, and integrity.
                             </p>
-                            <h3 className="text-xl font-semibold text-gray-700 mb-2">Our Team:</h3>
-                            <ul className="list-disc list-inside text-gray-600 mb-4 grid grid-cols-1 sm:grid-cols-2">
-                                <li>John Doe - Lead Developer</li>
-                                <li>Jane Smith - UI/UX Designer</li>
-                                <li>Peter Jones - Backend Developer</li>
-                                <li>Alice Brown - Quality Assurance</li>
-                                <li>Michael Chen - Database Architect</li>
-                                <li>Sophia Gomez - Frontend Specialist</li>
-                            </ul>
-                            <p className="text-gray-600">
-                                We are committed to continuous improvement and welcome feedback to make MEDITRACK even better.
-                            </p>
-                        </div>
 
-                        {/* --- UPDATED: Simplified layout with a consistent grid gap --- */}
+                            <h3 className="text-xl font-semibold text-gray-700 mb-2">Vision Statement</h3>
+                            <p className="text-gray-600 mb-6">
+                                A globally recognized Catholic university that nurtures faith, builds passion for excellence and develops lifelong learners with compassion for service that impacts transformation in a fast-changing society.
+                            </p>
+
+                            <h3 className="text-xl font-semibold text-gray-700 mb-2">Mission Statement</h3>
+                            <p className="text-gray-600 mb-4">
+                                We commit ourselves to:
+                            </p>
+                            <ul className="list-disc list-inside text-gray-600 space-y-2">
+                                <li>Provide an excellent educational experience to students to help them become globally competitive and adaptive to change;</li>
+                                <li>Inculcate among students the values of serving others with humility and love, working for justice, promoting peace, and preserving the integrity of creation;</li>
+                                <li>Engage in research activities in collaboration with local, regional, national, and international partners;</li>
+                                <li>Uphold the dignity of the persons, especially the poor;</li>
+                                <li>Promote and strengthen our Filipino culture and values and</li>
+                                <li>Administer the university following Catholic doctrine.</li>
+                            </ul>
+                        </div>
+                        {/* --- END OF UPDATED SECTION --- */}
+
                         <div className="mt-16">
                             <h2 className="text-3xl font-bold text-center text-gray-800 mb-16">Meet the Creators</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 px-6">

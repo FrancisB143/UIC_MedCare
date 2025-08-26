@@ -43,6 +43,8 @@ Route::get('/inventory/stocks/branch/{id}', function ($id) {
     ]);
 })->name('inventory.stocks.branch');
 
+Route::get('/inventory/otherbranch', fn() => Inertia::render('Inventory/OtherBranchInventory'));
+
 Route::get('/inventory/history', fn() => Inertia::render('Inventory/History'));
 Route::get('/Reports', fn() => Inertia::render('Reports'));
 Route::get('/Print', fn() => Inertia::render('Print'));

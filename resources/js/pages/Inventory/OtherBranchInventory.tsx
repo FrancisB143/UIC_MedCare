@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from "react";
 import NotificationBell, { Notification as NotificationType } from '../../components/NotificationBell';
 import Sidebar from '../../components/Sidebar';
-import AddMedicineModal from '../../components/AddMedicineModal';
-import RemovalReasonModal from '../../components/RemovalReasonModal';
-import DispenseMedicineModal from '../../components/DispenseMedicineModal';
-import ReorderMedicineModal from '../../components/ReorderMedicineModal';
 import { router } from '@inertiajs/react';
 import {
     ArrowLeft,
-    Trash2,
     Search,
     Menu
 } from 'lucide-react';
@@ -24,31 +19,16 @@ interface DateTimeData {
     time: string;
 }
 
-interface BranchInventoryPageProps {
+interface OtherBranchInventoryPageProps {
     branchId: number;
 }
 
-interface MedicineFormData {
-    medicineName: string;
-    category: string;
-    dateReceived: string;
-    expirationDate: string;
-    quantity: number;
-}
-
-const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) => {
+const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ branchId }) => {
     
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(true);
-    const [isAddMedicineModalOpen, setAddMedicineModalOpen] = useState(false);
-    const [isRemovalModalOpen, setRemovalModalOpen] = useState(false);
-    const [medicineToDelete, setMedicineToDelete] = useState<number | null>(null);
-    const [isDispenseModalOpen, setDispenseModalOpen] = useState(false);
-    const [medicineToDispense, setMedicineToDispense] = useState<Medicine | null>(null);
-    const [isReorderModalOpen, setReorderModalOpen] = useState(false);
-    const [medicineToReorder, setMedicineToReorder] = useState<Medicine | null>(null);
     const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
     const [branch, setBranch] = useState<ClinicBranch | null>(null);
     const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -95,67 +75,10 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
 
     const handleBackToStocks = (): void => router.visit('/inventory/stocks');
 
-    const handleOpenRemovalModal = (id: number) => {
-        setMedicineToDelete(id);
-        setRemovalModalOpen(true);
-    };
-    
-    const handleConfirmRemoval = (reason: string) => {
-        if (medicineToDelete !== null) {
-            console.log(`Removing medicine with ID: ${medicineToDelete}. Reason: "${reason}"`);
-            setMedicines(prev => prev.filter(med => med.id !== medicineToDelete));
-            setMedicineToDelete(null);
-            alert('Medicine has been removed successfully.');
-        }
-    };
-
-    const handleOpenDispenseModal = (medicine: Medicine) => {
-        setMedicineToDispense(medicine);
-        setDispenseModalOpen(true);
-    };
-
-    const handleConfirmDispense = (quantity: number) => {
-        if (medicineToDispense) {
-            setMedicines(prev => prev.map(med =>
-                med.id === medicineToDispense.id ? { ...med, stock: Math.max(0, med.stock - quantity) } : med
-            ));
-            console.log(`Dispensed ${quantity} of ${medicineToDispense.name}`);
-            setMedicineToDispense(null);
-        }
-    };
-    
-    // Handlers for the Reorder Modal
-    const handleOpenReorderModal = (medicine: Medicine) => {
-        setMedicineToReorder(medicine);
-        setReorderModalOpen(true);
-    };
-
-    const handleConfirmReorder = (formData: { dateReceived: string; quantity: number }) => {
-        if (medicineToReorder) {
-            setMedicines(prev => prev.map(med =>
-                med.id === medicineToReorder.id ? { ...med, stock: med.stock + formData.quantity } : med
-            ));
-            console.log(`Reordered ${formData.quantity} of ${medicineToReorder.name}. Date Received: ${formData.dateReceived}`);
-            setMedicineToReorder(null);
-            alert('Medicine stock has been updated successfully.');
-        }
-    };
-
-    const handleAddMedicine = (): void => setAddMedicineModalOpen(true);
-
-    const handleAddMedicineSubmit = (medicineData: MedicineFormData): void => {
-        const newId = medicines.length > 0 ? Math.max(...medicines.map(m => m.id)) + 1 : 1;
-        const newMedicine: Medicine = {
-            id: newId,
-            name: medicineData.medicineName,
-            category: medicineData.category,
-            stock: medicineData.quantity,
-            minStock: Math.floor(medicineData.quantity * 0.2),
-            expiry: medicineData.expirationDate,
-        };
-        setMedicines(prev => [...prev, newMedicine]);
-        console.log('New medicine added:', newMedicine);
-        alert(`Medicine "${medicineData.medicineName}" has been added successfully!`);
+    const handleRequestMedicine = (): void => {
+        // Placeholder for request functionality. This could open a new modal or navigate to a request page.
+        alert('Navigating to medicine request form...');
+        // Example: router.visit('/inventory/request-medicine');
     };
 
     const getFilteredAndSortedMedicines = (): Medicine[] => {
@@ -188,35 +111,6 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
                 handleLogout={handleLogout}
                 activeMenu="inventory-stocks"
             />
-            <AddMedicineModal
-                isOpen={isAddMedicineModalOpen}
-                setIsOpen={setAddMedicineModalOpen}
-                onAddMedicine={handleAddMedicineSubmit}
-                branchName={`${branch.name} ${branch.suffix}`.trim()}
-            />
-            <RemovalReasonModal
-                isOpen={isRemovalModalOpen}
-                setIsOpen={setRemovalModalOpen}
-                onSubmit={handleConfirmRemoval}
-            />
-            {medicineToDispense && (
-                <DispenseMedicineModal
-                    isOpen={isDispenseModalOpen}
-                    setIsOpen={setDispenseModalOpen}
-                    onSubmit={handleConfirmDispense}
-                    currentStock={medicineToDispense.stock}
-                />
-            )}
-            {medicineToReorder && (
-                <ReorderMedicineModal
-                    isOpen={isReorderModalOpen}
-                    setIsOpen={setReorderModalOpen}
-                    onSubmit={handleConfirmReorder}
-                    medicineName={medicineToReorder.name}
-                    category={medicineToReorder.category}
-                    expirationDate={medicineToReorder.expiry}
-                />
-            )}
             <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
                 <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3 flex-shrink-0 z-10">
                     <div className="flex items-center justify-between">
@@ -274,7 +168,6 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
                                         <th className="px-6 py-4 text-left font-medium">DATE RECEIVED</th>
                                         <th className="px-6 py-4 text-left font-medium">EXPIRATION DATE</th>
                                         <th className="px-6 py-4 text-left font-medium">QUANTITY</th>
-                                        <th className="px-6 py-4 text-center font-medium">ACTIONS</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
@@ -290,13 +183,6 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
                                             <td className="px-6 py-4 text-gray-900">2025-08-26</td>
                                             <td className="px-6 py-4 text-gray-900">{medicine.expiry === "N/A" ? "2027-03-25" : medicine.expiry}</td>
                                             <td className="px-6 py-4 text-gray-900 font-medium">{medicine.stock}</td>
-                                            <td className="px-3 py-4">
-                                                <div className="flex items-center justify-center space-x-2">
-                                                    <button onClick={() => handleOpenDispenseModal(medicine)} className="bg-red-200 text-red-800 hover:bg-red-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors" title="Dispense Medicine">-</button>
-                                                    <button onClick={() => handleOpenReorderModal(medicine)} className="bg-green-200 text-green-800 hover:bg-green-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors" title="Reorder/Add Stock">+</button>
-                                                    <button onClick={() => handleOpenRemovalModal(medicine.id)} className="text-gray-500 hover:text-red-600 p-1 transition-colors" title="Delete"><Trash2 className="w-5 h-5" /></button>
-                                                </div>
-                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -308,7 +194,7 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
                             )}
                         </div>
                         <div className="flex justify-end mt-8 flex-shrink-0">
-                            <button onClick={handleAddMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">ADD MEDICINE</button>
+                            <button onClick={handleRequestMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">REQUEST MEDICINE</button>
                         </div>
                     </div>
                 </div>
@@ -317,4 +203,4 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
     );
 };
 
-export default BranchInventoryPage;
+export default OtherBranchInventoryPage;
