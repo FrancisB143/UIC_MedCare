@@ -54,7 +54,7 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
                 setMedicines(branchMedicines);
             } else {
                 console.error(`Branch with ID ${branchId} not found`);
-                router.visit('/stocks');
+                router.visit('/inventory/stocks');
             }
         }
     }, [branchId]);
@@ -76,9 +76,9 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
     const handleBackToStocks = (): void => router.visit('/inventory/stocks');
 
     const handleRequestMedicine = (): void => {
-        // Placeholder for request functionality. This could open a new modal or navigate to a request page.
-        alert('Navigating to medicine request form...');
-        // Example: router.visit('/inventory/request-medicine');
+        alert(`Requesting medicine from ${branch?.name} ${branch?.suffix}...`);
+        // TODO: Implement request medicine functionality
+        // Example: router.visit(`/inventory/request-medicine/${branchId}`);
     };
 
     const getFilteredAndSortedMedicines = (): Medicine[] => {
@@ -127,7 +127,7 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
                         />
                     </div>
                 </header>
-                <div className="bg-gray-100 flex-1 flex flex-col overflow-hidden">
+                <main className="bg-gray-100 flex-1 flex flex-col overflow-hidden">
                     <div className="bg-white flex-shrink-0">
                         <div className="flex items-start px-8 py-4">
                             <button onClick={handleBackToStocks} className="flex items-center text-gray-600 hover:text-[#a3386c] transition-colors duration-200 mt-2">
@@ -145,7 +145,7 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
                     <div className="bg-white px-8 py-6 flex-1 flex flex-col overflow-hidden" style={{ minHeight: '528px' }}>
                         <div className="flex items-center justify-between mb-6 flex-shrink-0">
                             <div>
-                                <h2 className="text-xl font-medium text-black mb-1">Stock Available List</h2>
+                                <h2 className="text-xl font-medium text-black mb-1">Other Branch - Stock Available List</h2>
                                 <p className="text-gray-600 text-sm">{branch.name} {branch.suffix}</p>
                             </div>
                             <div className="relative">
@@ -159,6 +159,7 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
                                 />
                             </div>
                         </div>
+                        {/* Table without Actions column for Other Branches */}
                         <div className="bg-white rounded-lg overflow-auto flex-1">
                             <table className="w-full">
                                 <thead className="bg-[#D4A5B8] text-black sticky top-0">
@@ -194,13 +195,13 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
                             )}
                         </div>
                         <div className="flex justify-end mt-8 flex-shrink-0">
-                            <button onClick={handleRequestMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">REQUEST MEDICINE</button>
+                            <button onClick={handleRequestMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
+                                REQUEST MEDICINE
+                            </button>
                         </div>
                     </div>
-                </div>
+                </main>
             </div>
         </div>
     );
 };
-
-export default OtherBranchInventoryPage;

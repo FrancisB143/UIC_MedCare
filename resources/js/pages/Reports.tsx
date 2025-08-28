@@ -27,19 +27,6 @@ styleSheet.type = "text/css";
 styleSheet.innerText = printStyles;
 document.head.appendChild(styleSheet);
 
-
-interface DateTimeData {
-    date: string;
-    time: string;
-}
-
-function getCurrentDateTime(): DateTimeData {
-    const now = new Date();
-    const date = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
-    return { date, time };
-}
-
 // Data for the bar chart, organized by month and year
 const allChartData = {
     'March 2025': [
@@ -80,7 +67,6 @@ const Reports: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(false);
-    const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
     const [selectedMonthYear, setSelectedMonthYear] = useState<MonthYear>('March 2025');
 
     // Dummy data for the notification bell
@@ -88,16 +74,6 @@ const Reports: React.FC = () => {
         { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
         { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
     ];
-
-    // Effect to update the date and time every second
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setDateTime(getCurrentDateTime());
-        }, 1000);
-        return () => {
-            clearInterval(timer);
-        };
-    }, []);
 
     // Navigation and logout handlers
     const handleNavigation = (path: string): void => {
@@ -119,7 +95,6 @@ const Reports: React.FC = () => {
     };
 
     const chartData = allChartData[selectedMonthYear] || [];
-    const { date, time } = dateTime;
 
     return (
         <div className="flex h-screen bg-gray-100">
@@ -147,11 +122,6 @@ const Reports: React.FC = () => {
                     </div>
                 </header>
                 <main id="printable-area" className="flex-1 p-6 overflow-y-auto bg-white">
-                    <div className="flex flex-col items-center mb-8">
-                        <p className="text-[22px] font-normal text-black">{date}</p>
-                        <p className="text-[17px] text-base text-gray-500 mt-1">{time}</p>
-                        <div className="w-[130px] h-0.5 mt-3 bg-[#A3386C]"></div>
-                    </div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print:block">
                         <div className="lg:col-span-2">
                             <div className="bg-white border border-gray-200 rounded-lg p-6">

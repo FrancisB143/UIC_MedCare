@@ -5,13 +5,9 @@ import AddMedicineModal from '../../components/AddMedicineModal';
 import RemovalReasonModal from '../../components/RemovalReasonModal';
 import DispenseMedicineModal from '../../components/DispenseMedicineModal';
 import ReorderMedicineModal from '../../components/ReorderMedicineModal';
+import InventoryTable from '../../components/InventoryTable';
 import { router } from '@inertiajs/react';
-import {
-    ArrowLeft,
-    Trash2,
-    Search,
-    Menu
-} from 'lucide-react';
+import { ArrowLeft, Search, Menu } from 'lucide-react';
 import { 
     Medicine, 
     ClinicBranch, 
@@ -19,13 +15,10 @@ import {
     getMedicinesForBranch as getBranchMedicines 
 } from '../../data/branchMedicines';
 
+// INTERFACES
 interface DateTimeData {
     date: string;
     time: string;
-}
-
-interface BranchInventoryPageProps {
-    branchId: number;
 }
 
 interface MedicineFormData {
@@ -36,8 +29,20 @@ interface MedicineFormData {
     quantity: number;
 }
 
-const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) => {
+// Interface for the data coming from the Reorder Modal submission
+interface ReorderSubmissionData {
+    medicineName: string;
+    category: string;
+    dateReceived: string;
+    expirationDate: string;
+    quantity: number;
+}
+
+
+// COMPONENT
+const BranchInventoryPage: React.FC<{ branchId: number }> = ({ branchId }) => {
     
+    // STATE MANAGEMENT
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
@@ -58,6 +63,7 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
         { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
     ];
 
+    // HELPER FUNCTIONS
     function getCurrentDateTime(): DateTimeData {
         const now = new Date();
         const date = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -65,6 +71,7 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
         return { date, time };
     }
 
+    // EFFECTS
     useEffect(() => {
         if (branchId) {
             const branchData = getBranchById(branchId);
@@ -86,13 +93,12 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
 
     const { date, time } = dateTime;
 
+    // EVENT HANDLERS
     const handleNavigation = (path: string): void => router.visit(path);
-
     const handleLogout = (): void => {
         localStorage.removeItem("isLoggedIn");
         router.visit("/");
     };
-
     const handleBackToStocks = (): void => router.visit('/inventory/stocks');
 
     const handleOpenRemovalModal = (id: number) => {
@@ -124,22 +130,34 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
         }
     };
     
-    // Handlers for the Reorder Modal
     const handleOpenReorderModal = (medicine: Medicine) => {
         setMedicineToReorder(medicine);
         setReorderModalOpen(true);
     };
 
-    const handleConfirmReorder = (formData: { dateReceived: string; quantity: number }) => {
-        if (medicineToReorder) {
-            setMedicines(prev => prev.map(med =>
-                med.id === medicineToReorder.id ? { ...med, stock: med.stock + formData.quantity } : med
-            ));
-            console.log(`Reordered ${formData.quantity} of ${medicineToReorder.name}. Date Received: ${formData.dateReceived}`);
-            setMedicineToReorder(null);
-            alert('Medicine stock has been updated successfully.');
-        }
+    // --- THIS IS THE UPDATED REORDER FUNCTION ---
+    const handleConfirmReorder = (formData: ReorderSubmissionData) => {
+        // 1. Generate a new unique ID for the new row
+        const newId = medicines.length > 0 ? Math.max(...medicines.map(m => m.id)) + 1 : 1;
+
+        // 2. Create the new medicine object for the new inventory row
+        const newMedicineRow: Medicine = {
+            id: newId,
+            name: formData.medicineName,
+            category: formData.category,
+            stock: formData.quantity,
+            minStock: Math.floor(formData.quantity * 0.2), // Set a default minimum stock
+            expiry: formData.expirationDate,
+        };
+
+        // 3. Add the new medicine row to the state array
+        setMedicines(prevMedicines => [...prevMedicines, newMedicineRow]);
+
+        // 4. Reset the state and show a confirmation message
+        setMedicineToReorder(null);
+        alert(`A new batch of "${formData.medicineName}" has been successfully added to the inventory.`);
     };
+    // ---------------------------------------------
 
     const handleAddMedicine = (): void => setAddMedicineModalOpen(true);
 
@@ -155,7 +173,6 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
         };
         setMedicines(prev => [...prev, newMedicine]);
         console.log('New medicine added:', newMedicine);
-        alert(`Medicine "${medicineData.medicineName}" has been added successfully!`);
     };
 
     const getFilteredAndSortedMedicines = (): Medicine[] => {
@@ -176,6 +193,7 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
         );
     }
 
+    // JSX RENDER
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
             <Sidebar
@@ -188,6 +206,8 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
                 handleLogout={handleLogout}
                 activeMenu="inventory-stocks"
             />
+            
+            {/* --- MODALS --- */}
             <AddMedicineModal
                 isOpen={isAddMedicineModalOpen}
                 setIsOpen={setAddMedicineModalOpen}
@@ -214,9 +234,10 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
                     onSubmit={handleConfirmReorder}
                     medicineName={medicineToReorder.name}
                     category={medicineToReorder.category}
-                    expirationDate={medicineToReorder.expiry}
                 />
             )}
+            {/* ----------------- */}
+
             <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
                 <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3 flex-shrink-0 z-10">
                     <div className="flex items-center justify-between">
@@ -233,7 +254,8 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
                         />
                     </div>
                 </header>
-                <div className="bg-gray-100 flex-1 flex flex-col overflow-hidden">
+
+                <main className="bg-gray-100 flex-1 flex flex-col overflow-hidden">
                     <div className="bg-white flex-shrink-0">
                         <div className="flex items-start px-8 py-4">
                             <button onClick={handleBackToStocks} className="flex items-center text-gray-600 hover:text-[#a3386c] transition-colors duration-200 mt-2">
@@ -248,6 +270,7 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
                             </div>
                         </div>
                     </div>
+                    
                     <div className="bg-white px-8 py-6 flex-1 flex flex-col overflow-hidden" style={{ minHeight: '528px' }}>
                         <div className="flex items-center justify-between mb-6 flex-shrink-0">
                             <div>
@@ -265,53 +288,22 @@ const BranchInventoryPage: React.FC<BranchInventoryPageProps> = ({ branchId }) =
                                 />
                             </div>
                         </div>
-                        <div className="bg-white rounded-lg overflow-auto flex-1">
-                            <table className="w-full">
-                                <thead className="bg-[#D4A5B8] text-black sticky top-0">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left font-medium">MEDICINE NAME</th>
-                                        <th className="px-6 py-4 text-left font-medium">CATEGORY</th>
-                                        <th className="px-6 py-4 text-left font-medium">DATE RECEIVED</th>
-                                        <th className="px-6 py-4 text-left font-medium">EXPIRATION DATE</th>
-                                        <th className="px-6 py-4 text-left font-medium">QUANTITY</th>
-                                        <th className="px-6 py-4 text-center font-medium">ACTIONS</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {getFilteredAndSortedMedicines().map((medicine) => (
-                                        <tr key={medicine.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4">
-                                                <div className="text-gray-900 font-medium">
-                                                    {medicine.category.match(/Pain Relief|Antibiotic|Anti-inflammatory/) ? "RITEMED" : medicine.name.split(' ')[0]}
-                                                </div>
-                                                <div className="text-gray-600 text-sm">{medicine.name}</div>
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-900">{medicine.category}</td>
-                                            <td className="px-6 py-4 text-gray-900">2025-08-26</td>
-                                            <td className="px-6 py-4 text-gray-900">{medicine.expiry === "N/A" ? "2027-03-25" : medicine.expiry}</td>
-                                            <td className="px-6 py-4 text-gray-900 font-medium">{medicine.stock}</td>
-                                            <td className="px-3 py-4">
-                                                <div className="flex items-center justify-center space-x-2">
-                                                    <button onClick={() => handleOpenDispenseModal(medicine)} className="bg-red-200 text-red-800 hover:bg-red-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors" title="Dispense Medicine">-</button>
-                                                    <button onClick={() => handleOpenReorderModal(medicine)} className="bg-green-200 text-green-800 hover:bg-green-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors" title="Reorder/Add Stock">+</button>
-                                                    <button onClick={() => handleOpenRemovalModal(medicine.id)} className="text-gray-500 hover:text-red-600 p-1 transition-colors" title="Delete"><Trash2 className="w-5 h-5" /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {getFilteredAndSortedMedicines().length === 0 && (
-                                <div className="text-center py-8">
-                                    <p className="text-gray-500">{searchTerm ? 'No medicines found.' : 'No medicines in this branch.'}</p>
-                                </div>
-                            )}
-                        </div>
+                        
+                        <InventoryTable 
+                            medicines={getFilteredAndSortedMedicines()}
+                            onDispense={handleOpenDispenseModal}
+                            onReorder={handleOpenReorderModal}
+                            onRemove={handleOpenRemovalModal}
+                            searchTerm={searchTerm}
+                        />
+
                         <div className="flex justify-end mt-8 flex-shrink-0">
-                            <button onClick={handleAddMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">ADD MEDICINE</button>
+                            <button onClick={handleAddMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
+                                ADD MEDICINE
+                            </button>
                         </div>
                     </div>
-                </div>
+                </main>
             </div>
         </div>
     );
