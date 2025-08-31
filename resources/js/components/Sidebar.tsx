@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     return (
         <>
-            <div className={`fixed top-0 left-0 h-screen bg-gradient-to-b from-[#3D1528] to-[#A3386C] text-white z-20 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
+            <div className={`fixed top-0 left-0 h-screen bg-gradient-to-b from-[#3D1528] to-[#A3386C] text-white z-20 transition-all duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
                 {/* Profile */}
                 <div className="p-6 mt-4 border-b border-white/50">
                     <div className="flex flex-col items-center mb-2">
@@ -57,8 +57,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* Navigation */}
-                <nav className="mt-8 flex-1 flex flex-col overflow-y-auto">
-                    <div className="px-4 space-y-2">
+                <nav className="mt-8 flex-1 flex flex-col overflow-hidden">
+                    <div className="px-4 space-y-2 overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 220px)' }}>
                         {/* Dashboard */}
                         <div
                             className={`flex items-center px-4 py-3 rounded-lg cursor-pointer ${activeMenu === 'dashboard' ? 'bg-[#77536A]' : 'hover:bg-[#77536A]'}`}
@@ -176,7 +176,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </nav>
 
                 {/* Logout Button - Now opens the modal */}
-                <div className="absolute bottom-6 left-0 right-0 px-4">
+                <div className="px-4 pb-6">
                     <div 
                         className={`flex items-center p-3 hover:bg-[#77536A] rounded-lg cursor-pointer ${!isSidebarOpen && 'justify-center'}`} 
                         onClick={() => setLogoutModalOpen(true)}

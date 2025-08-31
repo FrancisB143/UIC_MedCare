@@ -23,27 +23,21 @@ Route::get('/inventory/stocks', function() {
     return Inertia::render('Inventory/Stocks');
 })->name('inventory.stocks');
 
-// NEW: Branch inventory route - IMPORTANT: This must come BEFORE the stocks route or it won't work
-Route::get('/inventory/stocks/branch/{id}', function ($id) {
-    // Add debug logging
-    \Log::info('Branch route hit with ID: ' . $id);
-    
-    $branchId = (int) $id;
-    
-    // Validate that branch exists
-    if ($branchId < 1 || $branchId > 5) {
-        \Log::warning('Invalid branch ID: ' . $branchId);
-        return redirect()->route('inventory.stocks')->with('error', 'Branch not found');
-    }
-    
-    \Log::info('Rendering BranchInventory with branchId: ' . $branchId);
-    
-    return Inertia::render('Inventory/BranchInventory', [
-        'branchId' => $branchId
-    ]);
-})->name('inventory.stocks.branch');
 
-Route::get('/inventory/otherbranch', fn() => Inertia::render('Inventory/OtherBranchInventory'));
+// Route for branch inventory with branchId (to match navigation in Stocks.tsx)
+Route::get('/inventory/branchinventory/{branchId}', function ($branchId) {
+    return Inertia::render('Inventory/BranchInventory', [
+        'branchId' => (int) $branchId
+    ]);
+});
+
+
+// Route for other branch stocks with branchId
+Route::get('/inventory/otherinventorystocks/{branchId}', function ($branchId) {
+    return Inertia::render('Inventory/OtherInventoryStocks', [
+        'branchId' => (int) $branchId
+    ]);
+});
 
 Route::get('/inventory/history', fn() => Inertia::render('Inventory/History'));
 Route::get('/Reports', fn() => Inertia::render('Reports'));

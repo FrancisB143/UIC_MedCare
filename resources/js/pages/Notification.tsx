@@ -35,11 +35,18 @@ function getCurrentDateTime(): DateTimeData {
     return { date, time };
 }
 
+
 const Notification: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
-    const [isInventoryOpen, setInventoryOpen] = useState(true);
+    const [isInventoryOpen, setInventoryOpen] = useState(false);
     const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
+
+    // Close dropdowns on mount
+    useEffect(() => {
+        setSearchOpen(false);
+        setInventoryOpen(false);
+    }, []);
 
     // Dummy data for the notifications pop-up in the header
     const bellNotifications: NotificationType[] = [

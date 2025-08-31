@@ -36,7 +36,7 @@ export default function Login() {
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,72,100,0.5)_0%,rgba(255,160,173,0.5)_100%)]" />
           <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
             <img
-              className="w-[120px] h-[125px] object-cover mb-6"
+              className="w-[125px] h-[125px] object-cover mb-6"
               alt="UIC logo"
               src="/images/Logo.png"
             />

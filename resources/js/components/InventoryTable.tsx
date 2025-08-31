@@ -38,7 +38,17 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 <div className="text-gray-900 font-medium">
                                     {medicine.category.match(/Pain Relief|Antibiotic|Anti-inflammatory/) ? "RITEMED" : medicine.name.split(' ')[0]}
                                 </div>
-                                <div className="text-gray-600 text-sm">{medicine.name}</div>
+                                {(() => {
+                                    const nameParts = medicine.name.split(' ');
+                                    if (nameParts.length > 1) {
+                                        return (
+                                            <div className="text-gray-600 text-sm">
+                                                {nameParts.slice(1).join(' ')}
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                             </td>
                             <td className="px-6 py-4 text-gray-900">{medicine.category}</td>
                             {/* NOTE: These dates were hardcoded in the original file. You might want to pass these as props or include them in the 'Medicine' type. */}

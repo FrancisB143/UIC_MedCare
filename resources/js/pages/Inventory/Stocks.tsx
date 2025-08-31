@@ -5,97 +5,46 @@ import { router } from '@inertiajs/react';
 import { Menu } from 'lucide-react';
 import { clinicBranches, ClinicBranch } from '../../data/branchMedicines';
 
-interface DateTimeData {
-    date: string;
-    time: string;
-}
+
 
 const StocksPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(true);
-    const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
 
-    // Notifications (same as Dashboard)
+
     const notifications: NotificationType[] = [
         { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
         { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
     ];
 
-    // Get current date and time
-    function getCurrentDateTime(): DateTimeData {
-        const now = new Date();
-        const date = now.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-        const time = now.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        });
-        return { date, time };
-    }
 
-    // Update time every second
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setDateTime(getCurrentDateTime());
-        }, 1000);
-
-        return () => {
-            clearInterval(timer);
-        };
-    }, []);
-
-    const { date, time } = dateTime;
-
-    const handleViewClick = (branchId: number): void => {
-        console.log('Navigating to branch:', branchId); // Debug log
-        console.log('URL:', `/inventory/stocks/branch/${branchId}`); // Debug log
-        
-        try {
-            // Navigate to the branch inventory page with the branch ID
-            router.visit(`/inventory/stocks/branch/${branchId}`, {
-                method: 'get',
-                onError: (errors) => {
-                    console.error('Navigation error:', errors);
-                },
-                onSuccess: () => {
-                    console.log('Navigation successful');
-                }
-            });
-        } catch (error) {
-            console.error('Router error:', error);
-            // Fallback to window.location if router fails
-            window.location.href = `/inventory/stocks/branch/${branchId}`;
-        }
-    };
-
-    const handleRequestMedicine = (): void => {
-        console.log("Request medicine clicked");
-        // TODO: Implement request medicine functionality
-    };
-
-    const handleNavigation = (path: string): void => {
-        router.visit(path);
-    };
+    const handleNavigation = (path: string): void => router.visit(path);
 
     const handleLogout = (): void => {
         localStorage.removeItem("isLoggedIn");
         router.visit("/");
     };
 
-    const toggleSidebar = () => {
-        setSidebarOpen(!isSidebarOpen);
+    // Navigate to BranchInventory for My Branch (id=1)
+    const handleMyBranchClick = (): void => {
+        router.visit(`/inventory/branchinventory/1`);
     };
+
+    // Navigate to Otherinventorystocks for other branches
+    const handleOtherBranchClick = (branchId: number): void => {
+        router.visit(`/inventory/otherinventorystocks/${branchId}`);
+    };
+
+    const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
+
+    // Separate Father Selga Campus (My Branch) from other branches
+    const myBranch = clinicBranches.find(branch => branch.id === 1);
+    const otherBranches = clinicBranches.filter(branch => branch.id !== 1);
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
-            {/* Sidebar */}
             <Sidebar
                 isSidebarOpen={isSidebarOpen}
                 isSearchOpen={isSearchOpen}
@@ -104,12 +53,10 @@ const StocksPage: React.FC = () => {
                 setInventoryOpen={setInventoryOpen}
                 handleNavigation={handleNavigation}
                 handleLogout={handleLogout}
-                activeMenu="inventory-stocks" // <-- Highlight Inventory > Stocks
+                activeMenu="inventory-stocks"
             />
-
-            {/* Main Content */}
+            
             <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
-                {/* Header */}
                 <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3 flex-shrink-0 z-10">
                     <div className="flex items-center justify-between">
                         <button onClick={toggleSidebar} className="text-white p-2 rounded-full hover:bg-white/20">
@@ -119,7 +66,6 @@ const StocksPage: React.FC = () => {
                             <img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
-                        {/* Notification Bell */}
                         <NotificationBell
                             notifications={notifications}
                             onSeeAll={() => handleNavigation('/notifications')}
@@ -127,62 +73,63 @@ const StocksPage: React.FC = () => {
                     </div>
                 </header>
 
-                {/* Main Stocks View */}
-                <div className="bg-white flex-1 px-20 py-6 overflow-y-auto">
-                    {/* Date and Time */}
-                    <div className="flex justify-center mb-6">
-                        <div className="flex flex-col items-center">
-                            <p className="text-[22px] font-normal text-black">{date}</p>
-                            <p className="text-[17px] text-base text-gray-500 mt-1">{time}</p>
-                            <div className="w-[130px] h-0.5 mt-3 bg-[#A3386C]"></div>
+                <main className="bg-gray-100 flex-1 flex flex-col overflow-hidden">
+
+                    
+                    <div className="bg-white px-8 py-4 flex-1 flex flex-col overflow-auto">
+                        <div className="mb-8">
+                            <h2 className="text-2xl font-semibold text-gray-800 mb-2">Select Branch Inventory</h2>
+                            <p className="text-gray-600">Choose a branch to view its medicine inventory</p>
+                        </div>
+
+                        {/* My Branch Section */}
+                        <div className="mb-8">
+                            <h3 className="text-lg font-medium text-gray-700 mb-4">My Branch</h3>
+                            {myBranch && (
+                                <div className="bg-white border-2 border-[#A3386C] rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer transform hover:scale-102"
+                                     onClick={handleMyBranchClick}>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="text-xl font-semibold text-gray-800">{myBranch.name}</h4>
+                                            <p className="text-gray-600 mt-1">{myBranch.suffix}</p>
+                                            <p className="text-sm text-[#A3386C] mt-2 font-medium">• Manage Inventory • Add/Remove Medicines</p>
+                                        </div>
+                                        <div className="text-[#A3386C]">
+                                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Other Branches Section */}
+                        <div>
+                            <h3 className="text-lg font-medium text-gray-700 mb-4">Other Branches</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {otherBranches.map((branch) => (
+                                    <div key={branch.id} 
+                                         className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer transform hover:scale-102 hover:border-[#A3386C]"
+                                         onClick={() => handleOtherBranchClick(branch.id)}>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h4 className="text-lg font-semibold text-gray-800">{branch.name}</h4>
+                                                <p className="text-gray-600 mt-1">{branch.suffix}</p>
+                                                <p className="text-sm text-gray-500 mt-2">• View Only • Request Medicines</p>
+                                            </div>
+                                            <div className="text-gray-400">
+                                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-
-                    {/* Dashboard Title */}
-                    <div className="mb-4">
-                        <h2 className="font-normal text-black text-[22px]">Inventory Clinic Branches</h2>
-                    </div>
-
-                    <div className="space-y-4">
-                        {clinicBranches.map((branch) => (
-                            <div
-                                key={branch.id}
-                                className="w-full h-[59px] rounded-[10px] border border-solid border-[#a3386c] bg-white shadow-sm"
-                            >
-                                <div className="p-0 h-full flex items-center justify-between">
-                                    <div className="flex items-center pl-7">
-                                        <span className="font-semibold text-black text-xl font-inter">
-                                            {branch.name}
-                                        </span>
-                                        {branch.suffix && (
-                                            <span className="ml-4 font-semibold text-black text-xl font-inter">
-                                                {branch.suffix}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={() => handleViewClick(branch.id)}
-                                        className="w-[90px] h-[40px] mr-7 bg-[#a3386c] hover:bg-[#8a2f5a] rounded-[10px] text-l font-semibold
-                                        text-white transition-colors duration-200 cursor-pointer"
-                                    >
-                                        View
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Request Medicine Button */}
-                    <div className="flex justify-end mt-8">
-                        <button
-                            onClick={handleRequestMedicine}
-                            className="w-[180px] h-[40px] border border-solid border-[#a3386c] hover:bg-[#a3386c] hover:text-white rounded-[10px]
-                            text-l font-semibold text-[#a3386c] transition-colors duration-200 cursor-pointer"
-                        >
-                            Request Medicine
-                        </button>
-                    </div>
-                </div>
+                </main>
             </div>
         </div>
     );

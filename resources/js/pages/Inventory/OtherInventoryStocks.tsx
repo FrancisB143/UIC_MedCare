@@ -14,36 +14,38 @@ import {
     getMedicinesForBranch as getBranchMedicines 
 } from '../../data/branchMedicines';
 
-interface DateTimeData {
-    date: string;
-    time: string;
-}
 
-interface OtherBranchInventoryPageProps {
-    branchId: number;
-}
 
-const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ branchId }) => {
+
+
+import { usePage } from '@inertiajs/react';
+
+const OtherBranchInventoryPage: React.FC = () => {
+    // Get branchId from Inertia page props (from route param)
+    const { branchId } = usePage().props as unknown as { branchId: number };
     
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(true);
-    const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
-    const [branch, setBranch] = useState<ClinicBranch | null>(null);
-    const [medicines, setMedicines] = useState<Medicine[]>([]);
 
+
+    // Define dateTime state
+    type DateTimeData = { date: string; time: string };
+    const [dateTime, setDateTime] = useState<DateTimeData>(() => getCurrentDateTime());
+    const [branch, setBranch] = useState<ClinicBranch | null>(null);
+
+    const [medicines, setMedicines] = useState<Medicine[]>([]);
+    // State to show checkboxes and track selected medicines
+    const [showCheckboxes, setShowCheckboxes] = useState(false);
+    const [selectedMedicines, setSelectedMedicines] = useState<{ [id: number]: boolean }>({});
+
+    
     const notifications: NotificationType[] = [
         { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
         { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
     ];
 
-    function getCurrentDateTime(): DateTimeData {
-        const now = new Date();
-        const date = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
-        return { date, time };
-    }
 
     useEffect(() => {
         if (branchId) {
@@ -59,11 +61,18 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
         }
     }, [branchId]);
 
+    function getCurrentDateTime(): DateTimeData {
+        const now = new Date();
+        const date = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+        return { date, time };
+    }
+        
     useEffect(() => {
         const timer = setInterval(() => setDateTime(getCurrentDateTime()), 1000);
         return () => clearInterval(timer);
     }, []);
-
+    
     const { date, time } = dateTime;
 
     const handleNavigation = (path: string): void => router.visit(path);
@@ -76,15 +85,18 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
     const handleBackToStocks = (): void => router.visit('/inventory/stocks');
 
     const handleRequestMedicine = (): void => {
-        alert(`Requesting medicine from ${branch?.name} ${branch?.suffix}...`);
-        // TODO: Implement request medicine functionality
-        // Example: router.visit(`/inventory/request-medicine/${branchId}`);
+        setShowCheckboxes(true);
+    };
+
+    const handleCheckboxChange = (id: number) => {
+        setSelectedMedicines(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
     const getFilteredAndSortedMedicines = (): Medicine[] => {
         let processed = medicines.filter(med =>
-            med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            med.category.toLowerCase().includes(searchTerm.toLowerCase())
+            (!showCheckboxes || med.stock > 30) &&
+            (med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             med.category.toLowerCase().includes(searchTerm.toLowerCase()))
         );
         return processed.sort((a, b) => new Date(a.expiry).getTime() - new Date(b.expiry).getTime());
     };
@@ -164,6 +176,7 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
                             <table className="w-full">
                                 <thead className="bg-[#D4A5B8] text-black sticky top-0">
                                     <tr>
+                                        {showCheckboxes && <th className="px-2 py-4"></th>}
                                         <th className="px-6 py-4 text-left font-medium">MEDICINE NAME</th>
                                         <th className="px-6 py-4 text-left font-medium">CATEGORY</th>
                                         <th className="px-6 py-4 text-left font-medium">DATE RECEIVED</th>
@@ -174,11 +187,30 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
                                 <tbody className="divide-y divide-gray-200">
                                     {getFilteredAndSortedMedicines().map((medicine) => (
                                         <tr key={medicine.id} className="hover:bg-gray-50">
+                                            {showCheckboxes && (
+                                                <td className="px-2 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!!selectedMedicines[medicine.id]}
+                                                        onChange={() => handleCheckboxChange(medicine.id)}
+                                                    />
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4">
-                                                <div className="text-gray-900 font-medium">
-                                                    {medicine.category.match(/Pain Relief|Antibiotic|Anti-inflammatory/) ? "RITEMED" : medicine.name.split(' ')[0]}
-                                                </div>
-                                                <div className="text-gray-600 text-sm">{medicine.name}</div>
+                                                    <div className="text-gray-900 font-medium">
+                                                        {medicine.category.match(/Pain Relief|Antibiotic|Anti-inflammatory/) ? "RITEMED" : medicine.name.split(' ')[0]}
+                                                    </div>
+                                                    {(() => {
+                                                        const nameParts = medicine.name.split(' ');
+                                                        if (nameParts.length > 1) {
+                                                            return (
+                                                                <div className="text-gray-600 text-sm">
+                                                                    {nameParts.slice(1).join(' ')}
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
                                             </td>
                                             <td className="px-6 py-4 text-gray-900">{medicine.category}</td>
                                             <td className="px-6 py-4 text-gray-900">2025-08-26</td>
@@ -195,13 +227,22 @@ const OtherBranchInventoryPage: React.FC<OtherBranchInventoryPageProps> = ({ bra
                             )}
                         </div>
                         <div className="flex justify-end mt-8 flex-shrink-0">
-                            <button onClick={handleRequestMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
-                                REQUEST MEDICINE
-                            </button>
+                            {!showCheckboxes ? (
+                                <button onClick={handleRequestMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
+                                    REQUEST MEDICINE
+                                </button>
+                            ) : (
+                                <button className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
+                                    CONFIRM
+                                </button>
+                            )}
                         </div>
                     </div>
                 </main>
             </div>
         </div>
+
     );
 };
+
+export default OtherBranchInventoryPage;
