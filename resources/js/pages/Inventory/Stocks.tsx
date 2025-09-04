@@ -68,7 +68,7 @@ const StocksPage: React.FC = () => {
                         </div>
                         <NotificationBell
                             notifications={notifications}
-                            onSeeAll={() => handleNavigation('/notifications')}
+                            onSeeAll={() => handleNavigation('/Notification')}
                         />
                     </div>
                 </header>

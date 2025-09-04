@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import RequestMedicineModal from '../../components/RequestMedicineModal';
+import OtherInventoryTable from '../../components/OtherInventoryTable';
 import NotificationBell, { Notification as NotificationType } from '../../components/NotificationBell';
 import Sidebar from '../../components/Sidebar';
 import { router } from '@inertiajs/react';
@@ -36,9 +38,8 @@ const OtherBranchInventoryPage: React.FC = () => {
     const [branch, setBranch] = useState<ClinicBranch | null>(null);
 
     const [medicines, setMedicines] = useState<Medicine[]>([]);
-    // State to show checkboxes and track selected medicines
-    const [showCheckboxes, setShowCheckboxes] = useState(false);
-    const [selectedMedicines, setSelectedMedicines] = useState<{ [id: number]: boolean }>({});
+    // State to show request modal
+    const [isRequestModalOpen, setRequestModalOpen] = useState(false);
 
     
     const notifications: NotificationType[] = [
@@ -84,19 +85,19 @@ const OtherBranchInventoryPage: React.FC = () => {
 
     const handleBackToStocks = (): void => router.visit('/inventory/stocks');
 
+    // Get medicines with stock > 40 for dropdown
+    const eligibleMedicines = medicines.filter(med => med.stock > 40);
+
     const handleRequestMedicine = (): void => {
-        setShowCheckboxes(true);
+        setRequestModalOpen(true);
     };
 
-    const handleCheckboxChange = (id: number) => {
-        setSelectedMedicines(prev => ({ ...prev, [id]: !prev[id] }));
-    };
+
 
     const getFilteredAndSortedMedicines = (): Medicine[] => {
         let processed = medicines.filter(med =>
-            (!showCheckboxes || med.stock > 30) &&
-            (med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-             med.category.toLowerCase().includes(searchTerm.toLowerCase()))
+            med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            med.category.toLowerCase().includes(searchTerm.toLowerCase())
         );
         return processed.sort((a, b) => new Date(a.expiry).getTime() - new Date(b.expiry).getTime());
     };
@@ -110,6 +111,12 @@ const OtherBranchInventoryPage: React.FC = () => {
             </div>
         );
     }
+
+    // Handler for request modal submission
+    const handleRequestSubmit = (data: { medicineId: number; expirationDate: string; quantity: number }) => {
+        setRequestModalOpen(false);
+        // TODO: handle request logic (API call, UI update, etc.)
+    };
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
@@ -135,7 +142,7 @@ const OtherBranchInventoryPage: React.FC = () => {
                         </div>
                         <NotificationBell
                             notifications={notifications}
-                            onSeeAll={() => handleNavigation('/notifications')}
+                            onSeeAll={() => handleNavigation('/Notification')}
                         />
                     </div>
                 </header>
@@ -171,72 +178,21 @@ const OtherBranchInventoryPage: React.FC = () => {
                                 />
                             </div>
                         </div>
-                        {/* Table without Actions column for Other Branches */}
-                        <div className="bg-white rounded-lg overflow-auto flex-1">
-                            <table className="w-full">
-                                <thead className="bg-[#D4A5B8] text-black sticky top-0">
-                                    <tr>
-                                        {showCheckboxes && <th className="px-2 py-4"></th>}
-                                        <th className="px-6 py-4 text-left font-medium">MEDICINE NAME</th>
-                                        <th className="px-6 py-4 text-left font-medium">CATEGORY</th>
-                                        <th className="px-6 py-4 text-left font-medium">DATE RECEIVED</th>
-                                        <th className="px-6 py-4 text-left font-medium">EXPIRATION DATE</th>
-                                        <th className="px-6 py-4 text-left font-medium">QUANTITY</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {getFilteredAndSortedMedicines().map((medicine) => (
-                                        <tr key={medicine.id} className="hover:bg-gray-50">
-                                            {showCheckboxes && (
-                                                <td className="px-2 py-4">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={!!selectedMedicines[medicine.id]}
-                                                        onChange={() => handleCheckboxChange(medicine.id)}
-                                                    />
-                                                </td>
-                                            )}
-                                            <td className="px-6 py-4">
-                                                    <div className="text-gray-900 font-medium">
-                                                        {medicine.category.match(/Pain Relief|Antibiotic|Anti-inflammatory/) ? "RITEMED" : medicine.name.split(' ')[0]}
-                                                    </div>
-                                                    {(() => {
-                                                        const nameParts = medicine.name.split(' ');
-                                                        if (nameParts.length > 1) {
-                                                            return (
-                                                                <div className="text-gray-600 text-sm">
-                                                                    {nameParts.slice(1).join(' ')}
-                                                                </div>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })()}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-900">{medicine.category}</td>
-                                            <td className="px-6 py-4 text-gray-900">2025-08-26</td>
-                                            <td className="px-6 py-4 text-gray-900">{medicine.expiry === "N/A" ? "2027-03-25" : medicine.expiry}</td>
-                                            <td className="px-6 py-4 text-gray-900 font-medium">{medicine.stock}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {getFilteredAndSortedMedicines().length === 0 && (
-                                <div className="text-center py-8">
-                                    <p className="text-gray-500">{searchTerm ? 'No medicines found.' : 'No medicines in this branch.'}</p>
-                                </div>
-                            )}
-                        </div>
+                        {/* Table for Other Branches */}
+                        <OtherInventoryTable medicines={getFilteredAndSortedMedicines()} searchTerm={searchTerm} />
                         <div className="flex justify-end mt-8 flex-shrink-0">
-                            {!showCheckboxes ? (
-                                <button onClick={handleRequestMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
-                                    REQUEST MEDICINE
-                                </button>
-                            ) : (
-                                <button className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
-                                    CONFIRM
-                                </button>
-                            )}
+                            <button onClick={handleRequestMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
+                                REQUEST MEDICINE
+                            </button>
                         </div>
+
+                        {/* Request Medicine Modal */}
+                        <RequestMedicineModal
+                            isOpen={isRequestModalOpen}
+                            setIsOpen={setRequestModalOpen}
+                            branchId={branchId}
+                            onRequest={handleRequestSubmit}
+                        />
                     </div>
                 </main>
             </div>

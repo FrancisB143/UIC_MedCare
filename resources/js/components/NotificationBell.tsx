@@ -36,7 +36,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, onSe
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-semibold text-gray-800">Recent Notification History</h3>
                         {onSeeAll && (
-                            <button className="text-sm text-[#A3386C] hover:underline" onClick={onSeeAll}>See All</button>
+                            <button className="text-sm text-[#A3386C] hover:underline" onClick={() => onSeeAll && onSeeAll()}>See All</button>
                         )}
                     </div>
                     {notifications.length === 0 ? (

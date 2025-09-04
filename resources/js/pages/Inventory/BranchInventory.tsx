@@ -250,7 +250,7 @@ const BranchInventoryPage: React.FC<{ branchId: number }> = ({ branchId }) => {
                         </div>
                         <NotificationBell
                             notifications={notifications}
-                            onSeeAll={() => handleNavigation('/notifications')}
+                            onSeeAll={() => handleNavigation('/Notification')}
                         />
                     </div>
                 </header>

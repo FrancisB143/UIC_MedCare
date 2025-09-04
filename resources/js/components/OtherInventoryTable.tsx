@@ -10,13 +10,13 @@ const OtherInventoryTable: React.FC<OtherInventoryTableProps> = ({ medicines, se
   return (
     <div className="bg-white rounded-lg overflow-auto flex-1">
       <table className="w-full">
-        <thead className="bg-[#D4A5B8] text-black sticky top-0 z-10">
+        <thead className="bg-[#F9E7F0] text-black sticky top-0 z-10">
           <tr>
-            <th className="px-6 py-4 text-left font-medium">MEDICINE NAME</th>
-            <th className="px-6 py-4 text-left font-medium">CATEGORY</th>
-            <th className="px-6 py-4 text-left font-medium">DATE RECEIVED</th>
-            <th className="px-6 py-4 text-left font-medium">EXPIRATION DATE</th>
-            <th className="px-6 py-4 text-left font-medium">QUANTITY</th>
+            <th className="px-6 py-4 text-left font-bold">MEDICINE NAME</th>
+            <th className="px-6 py-4 text-left font-bold">CATEGORY</th>
+            <th className="px-6 py-4 text-left font-bold">DATE RECEIVED</th>
+            <th className="px-6 py-4 text-left font-bold">EXPIRATION DATE</th>
+            <th className="px-6 py-4 text-left font-bold">QUANTITY</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">

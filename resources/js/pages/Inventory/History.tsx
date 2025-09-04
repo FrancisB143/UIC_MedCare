@@ -202,12 +202,12 @@ const History: React.FC = () => {
                     {/* History Table */}
                     <div className="bg-white rounded-lg overflow-hidden shadow-md border border-gray-200">
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-[#D4A5B8] text-black">
+                            <thead className="bg-[#F9E7F0] text-black">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">DATE REMOVED</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">MEDICINE NAME</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">QUANTITY</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">REASON FOR REMOVAL</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">DATE REMOVED</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">MEDICINE NAME</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">QUANTITY</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">REASON FOR REMOVAL</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">

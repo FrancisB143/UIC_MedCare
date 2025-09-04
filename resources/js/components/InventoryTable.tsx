@@ -21,14 +21,14 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     return (
         <div className="bg-white rounded-lg overflow-auto flex-1">
             <table className="w-full">
-                <thead className="bg-[#D4A5B8] text-black sticky top-0 z-10">
+                <thead className="bg-[#F9E7F0] text-black sticky top-0 z-10"> 
                     <tr>
-                        <th className="px-6 py-4 text-left font-medium">MEDICINE NAME</th>
-                        <th className="px-6 py-4 text-left font-medium">CATEGORY</th>
-                        <th className="px-6 py-4 text-left font-medium">DATE RECEIVED</th>
-                        <th className="px-6 py-4 text-left font-medium">EXPIRATION DATE</th>
-                        <th className="px-6 py-4 text-left font-medium">QUANTITY</th>
-                        <th className="px-6 py-4 text-center font-medium">ACTIONS</th>
+                        <th className="px-6 py-4 text-left font-bold">MEDICINE NAME</th>
+                        <th className="px-6 py-4 text-left font-bold">CATEGORY</th>
+                        <th className="px-6 py-4 text-left font-bold">DATE RECEIVED</th>
+                        <th className="px-6 py-4 text-left font-bold">EXPIRATION DATE</th>
+                        <th className="px-6 py-4 text-left font-bold">QUANTITY</th>
+                        <th className="px-6 py-4 text-center font-bold">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -51,7 +51,6 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 })()}
                             </td>
                             <td className="px-6 py-4 text-gray-900">{medicine.category}</td>
-                            {/* NOTE: These dates were hardcoded in the original file. You might want to pass these as props or include them in the 'Medicine' type. */}
                             <td className="px-6 py-4 text-gray-900">2025-08-26</td>
                             <td className="px-6 py-4 text-gray-900">{medicine.expiry === "N/A" ? "2027-03-25" : medicine.expiry}</td>
                             <td className="px-6 py-4 text-gray-900 font-medium">{medicine.stock}</td>

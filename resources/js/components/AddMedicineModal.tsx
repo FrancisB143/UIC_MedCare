@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Swal from 'sweetalert2';
 import { X, Plus, Calendar, CheckCircle } from 'lucide-react';
 
 interface AddMedicineModalProps {
@@ -32,7 +33,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
 }) => {
     const [formData, setFormData] = useState<MedicineFormData>(initialFormData);
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [view, setView] = useState<'form' | 'success'>('form');
+    // Removed view state
 
     // Get current date and time
     const getCurrentDateTime = () => {
@@ -86,62 +87,38 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (validateForm()) {
-            onAddMedicine(formData);
-            setView('success');
-        }
-    };
+        const handleSubmit = (e: React.FormEvent) => {
+                e.preventDefault();
+                if (validateForm()) {
+                        onAddMedicine(formData);
+                        Swal.fire({
+                                position: 'center',
+                                icon: 'success',
+                                title: 'Medicine Successfully Requested!',
+                                html: `
+                                    <div style="text-align:left;margin-top:1em;">
+                                        <div><b>Medicine Name:</b> ${formData.medicineName}</div>
+                                        <div><b>Category:</b> ${formData.category}</div>
+                                        <div><b>Date Received:</b> ${formData.dateReceived}</div>
+                                        <div><b>Expiration Date:</b> ${formData.expirationDate}</div>
+                                        <div><b>Quantity:</b> ${formData.quantity}</div>
+                                    </div>
+                                `,
+                                showConfirmButton: false,
+                                timer: 2000,
+                        });
+                        // No view state change
+                }
+        };
 
     const handleClose = () => {
         setFormData(initialFormData);
         setErrors({});
         setIsOpen(false);
-        setTimeout(() => {
-            setView('form');
-        }, 300);
+    // No view state to reset
     };
 
-    const SuccessView = () => (
-        <div className="text-left p-6 animate-fade-in">
-            <h2 className="text-2xl font-bold text-green-600 mb-6 text-center">
-                MEDICINE SUCCESSFULLY ADDED!
-            </h2>
-
-            <div className="space-y-3 text-sm text-gray-700">
-                <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500">MEDICINE NAME:</span>
-                    <span className="font-medium text-gray-900">{formData.medicineName}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500">CATEGORY:</span>
-                    <span className="font-medium text-gray-900">{formData.category}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500">DATE RECEIVED:</span>
-                    <span className="font-medium text-gray-900">{formData.dateReceived}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500">EXPIRATION DATE:</span>
-                    <span className="font-medium text-gray-900">{formData.expirationDate}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500">QUANTITY:</span>
-                    <span className="font-bold text-red-500">{formData.quantity}</span>
-                </div>
-            </div>
-
-            <div className="flex justify-center pt-8">
-                <button
-                    onClick={handleClose}
-                    className="bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-8 rounded-lg transition-all duration-200 shadow-lg hover:scale-105 transform text-sm"
-                >
-                    BACK TO STOCKS
-                </button>
-            </div>
-        </div>
-    );
+    // Removed SuccessView
     
     return (
         <>
@@ -162,119 +139,103 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                         className="bg-white rounded-lg w-full max-w-md shadow-2xl cursor-default relative overflow-hidden animate-scale-in"
                         style={{ maxHeight: '95vh' }}
                     >
-                        {view === 'form' && <Plus className="text-[#A3386C]/10 rotate-12 text-[200px] absolute z-0 -top-16 -right-16" />}
-                        
-                        {view === 'success' && <CheckCircle className="text-green-500/10 rotate-12 text-[200px] absolute z-0 -top-16 -right-16" />}
-
+                        <Plus className="text-[#A3386C]/10 rotate-12 text-[200px] absolute z-0 -top-16 -right-16" />
                         <div className="relative z-10">
-                            {view === 'form' && (
-                                <div className="bg-gradient-to-r from-[#3D1528] to-[#A3386C] text-white p-6 relative">
-                                    <button
-                                        onClick={handleClose}
-                                        className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
-                                    >
-                                        <X className="w-6 h-6" />
-                                    </button>
-                                    <div className="text-center">
-                                        <h2 className="text-lg font-bold mb-1">{date}</h2>
-                                        <p className="text-white/90 text-xs mb-4">{time}</p>
-                                        <div className="w-20 h-0.5 bg-white/50 mx-auto"></div>
-                                    </div>
+                            <div className="bg-gradient-to-r from-[#3D1528] to-[#A3386C] text-white p-6 relative">
+                                <button
+                                    onClick={handleClose}
+                                    className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+                                >
+                                    <X className="w-6 h-6" />
+                                </button>
+                                <div className="text-center">
+                                    <h2 className="text-lg font-bold mb-1">{date}</h2>
+                                    <p className="text-white/90 text-xs mb-4">{time}</p>
+                                    <div className="w-20 h-0.5 bg-white/50 mx-auto"></div>
                                 </div>
-                            )}
-
-                            <div className={view === 'form' ? "p-4 overflow-y-auto" : "pt-6"} style={{ maxHeight: 'calc(95vh - 120px)' }}>
-                                {view === 'form' ? (
-                                    <>
-                                        <p className="text-red-500 text-sm text-center mb-4 italic">
-                                            Fill in all required details to save this medicine to the system.
-                                        </p>
-                                        <form onSubmit={handleSubmit} className="space-y-4">
-                                            {/* Medicine Name */}
-                                            <div>
-                                                <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Medicine Name</label>
+                            </div>
+                            <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(95vh - 120px)' }}>
+                                <p className="text-red-500 text-sm text-center mb-4 italic">
+                                    Fill in all required details to save this medicine to the system.
+                                </p>
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    {/* Medicine Name */}
+                                    <div>
+                                        <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Medicine Name</label>
+                                        <input
+                                            type="text"
+                                            value={formData.medicineName}
+                                            onChange={(e) => handleInputChange('medicineName', e.target.value)}
+                                            className={`w-full px-3 py-2 border-0 border-b-2 ${errors.medicineName ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
+                                            placeholder="Enter medicine name"
+                                        />
+                                        {errors.medicineName && <p className="text-red-500 text-xs mt-1">{errors.medicineName}</p>}
+                                    </div>
+                                    {/* Category */}
+                                    <div>
+                                        <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Category</label>
+                                        <select
+                                            value={formData.category}
+                                            onChange={(e) => handleInputChange('category', e.target.value)}
+                                            className={`w-full px-3 py-2 border-0 border-b-2 ${errors.category ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
+                                        >
+                                            <option value="">Select category</option>
+                                            {categories.map((cat) => (<option key={cat} value={cat}>{cat}</option>))}
+                                        </select>
+                                        {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
+                                    </div>
+                                    {/* Date Received & Expiration Date (Side-by-side) */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Date Received</label>
+                                            <div className="relative">
                                                 <input
-                                                    type="text"
-                                                    value={formData.medicineName}
-                                                    onChange={(e) => handleInputChange('medicineName', e.target.value)}
-                                                    className={`w-full px-3 py-2 border-0 border-b-2 ${errors.medicineName ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
-                                                    placeholder="Enter medicine name"
+                                                    type="date"
+                                                    value={formData.dateReceived}
+                                                    onChange={(e) => handleInputChange('dateReceived', e.target.value)}
+                                                    className={`w-full px-3 py-2 border-0 border-b-2 ${errors.dateReceived ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
                                                 />
-                                                {errors.medicineName && <p className="text-red-500 text-xs mt-1">{errors.medicineName}</p>}
+                                                <Calendar className="absolute right-3 top-2 w-4 h-4 text-gray-400 pointer-events-none" />
                                             </div>
-
-                                            {/* Category */}
-                                            <div>
-                                                <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Category</label>
-                                                <select
-                                                    value={formData.category}
-                                                    onChange={(e) => handleInputChange('category', e.target.value)}
-                                                    className={`w-full px-3 py-2 border-0 border-b-2 ${errors.category ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
-                                                >
-                                                    <option value="">Select category</option>
-                                                    {categories.map((cat) => (<option key={cat} value={cat}>{cat}</option>))}
-                                                </select>
-                                                {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
-                                            </div>
-
-                                            {/* Date Received & Expiration Date (Side-by-side) */}
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Date Received</label>
-                                                    <div className="relative">
-                                                        <input
-                                                            type="date"
-                                                            value={formData.dateReceived}
-                                                            onChange={(e) => handleInputChange('dateReceived', e.target.value)}
-                                                            className={`w-full px-3 py-2 border-0 border-b-2 ${errors.dateReceived ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
-                                                        />
-                                                        <Calendar className="absolute right-3 top-2 w-4 h-4 text-gray-400 pointer-events-none" />
-                                                    </div>
-                                                    {errors.dateReceived && <p className="text-red-500 text-xs mt-1">{errors.dateReceived}</p>}
-                                                </div>
-                                                <div>
-                                                    <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Expiration Date</label>
-                                                    <div className="relative">
-                                                        <input
-                                                            type="date"
-                                                            value={formData.expirationDate}
-                                                            onChange={(e) => handleInputChange('expirationDate', e.target.value)}
-                                                            className={`w-full px-3 py-2 border-0 border-b-2 ${errors.expirationDate ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
-                                                        />
-                                                        <Calendar className="absolute right-3 top-2 w-4 h-4 text-gray-400 pointer-events-none" />
-                                                    </div>
-                                                    {errors.expirationDate && <p className="text-red-500 text-xs mt-1">{errors.expirationDate}</p>}
-                                                </div>
-                                            </div>
-
-                                            {/* Quantity */}
-                                            <div>
-                                                <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Quantity</label>
+                                            {errors.dateReceived && <p className="text-red-500 text-xs mt-1">{errors.dateReceived}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Expiration Date</label>
+                                            <div className="relative">
                                                 <input
-                                                    type="number"
-                                                    min="1"
-                                                    value={formData.quantity || ''}
-                                                    onChange={(e) => handleInputChange('quantity', parseInt(e.target.value) || 0)}
-                                                    className={`w-full px-3 py-2 border-0 border-b-2 ${errors.quantity ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
-                                                    placeholder="Enter quantity"
+                                                    type="date"
+                                                    value={formData.expirationDate}
+                                                    onChange={(e) => handleInputChange('expirationDate', e.target.value)}
+                                                    className={`w-full px-3 py-2 border-0 border-b-2 ${errors.expirationDate ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
                                                 />
-                                                {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
+                                                <Calendar className="absolute right-3 top-2 w-4 h-4 text-gray-400 pointer-events-none" />
                                             </div>
-
-                                            {/* Submit Button */}
-                                            <div className="flex justify-center pt-2">
-                                                <button
-                                                    type="submit"
-                                                    className="bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg hover:scale-105 transform text-sm"
-                                                >
-                                                    ADD MEDICINE
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </>
-                                ) : (
-                                    <SuccessView />
-                                )}
+                                            {errors.expirationDate && <p className="text-red-500 text-xs mt-1">{errors.expirationDate}</p>}
+                                        </div>
+                                    </div>
+                                    {/* Quantity */}
+                                    <div>
+                                        <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Quantity</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={formData.quantity || ''}
+                                            onChange={(e) => handleInputChange('quantity', parseInt(e.target.value) || 0)}
+                                            className={`w-full px-3 py-2 border-0 border-b-2 ${errors.quantity ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
+                                            placeholder="Enter quantity"
+                                        />
+                                        {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
+                                    </div>
+                                    {/* Submit Button */}
+                                    <div className="flex justify-center pt-2">
+                                        <button
+                                            type="submit"
+                                            className="bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg hover:scale-105 transform text-sm"
+                                        >
+                                            ADD MEDICINE
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     </div>
