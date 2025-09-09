@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import NotificationBell, { Notification as NotificationType } from '../components/NotificationBell';
 import { router } from '@inertiajs/react';
 import Sidebar from '../components/Sidebar';
+import TestSupabase from '../components/TestSupabase';
+import UserInfo from '../components/UserInfo';
+import { DebugSupabase } from '../components/DebugSupabase';
 import { Menu } from 'lucide-react';
+import { UserService } from '../services/userService';
 
 interface DateTimeData {
     date: string;
@@ -36,6 +40,12 @@ const Dashboard: React.FC = () => {
         { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
     ];
 
+    // Debug: Log authentication status on Dashboard load
+    useEffect(() => {
+        console.log('Dashboard loaded. Auth status:', UserService.isLoggedIn());
+        console.log('Current user:', UserService.getCurrentUser());
+    }, []);
+
     useEffect(() => {
         const timer = setInterval(() => {
             setDateTime(getCurrentDateTime());
@@ -46,12 +56,12 @@ const Dashboard: React.FC = () => {
     const { date, time } = dateTime;
 
     const handleNavigation = (path: string): void => {
+        // Ensure smooth navigation without authentication interference
         router.visit(path);
     };
 
     const handleLogout = (): void => {
-        localStorage.removeItem("isLoggedIn");
-        router.visit('/');
+        router.post('/logout');
     };
 
     const toggleSidebar = () => {
@@ -102,6 +112,21 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     <h1 className="text-5xl font-bold text-black mb-8">Dashboard</h1>
+
+                    {/* User Info */}
+                    <section className="mb-6">
+                        <UserInfo />
+                    </section>
+
+                    {/* Supabase Connection Test */}
+                    <section className="mb-8">
+                        <TestSupabase />
+                    </section>
+
+                    {/* Debug Supabase Tool */}
+                    <section className="mb-8">
+                        <DebugSupabase />
+                    </section>
 
                     <section className="mb-10">
                         <h2 className="text-2xl font-normal text-black mb-4">Current Consultations:</h2>

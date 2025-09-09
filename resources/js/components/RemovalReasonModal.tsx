@@ -4,13 +4,23 @@ interface RemovalReasonModalProps {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     onSubmit: (reason: string) => void;
+    currentStock?: number;
+    medicineName?: string;
+    medicineCategory?: string;
 }
 
-const RemovalReasonModal: React.FC<RemovalReasonModalProps> = ({ isOpen, setIsOpen, onSubmit }) => {
+const RemovalReasonModal: React.FC<RemovalReasonModalProps> = ({ 
+    isOpen, 
+    setIsOpen, 
+    onSubmit, 
+    currentStock = 0,
+    medicineName = 'Unknown Medicine',
+    medicineCategory = 'No Category'
+}) => {
     
     const [reason, setReason] = useState('');
 
-    // Clear the reason text when the modal opens
+    // Clear the form when the modal opens
     useEffect(() => {
         if (isOpen) {
             setReason('');
@@ -18,14 +28,14 @@ const RemovalReasonModal: React.FC<RemovalReasonModalProps> = ({ isOpen, setIsOp
     }, [isOpen]);
 
     const handleSubmit = () => {
-        // Basic validation to ensure a reason is provided
-        if (reason.trim()) {
-            onSubmit(reason);
-            setIsOpen(false); // Close modal on successful submission
-        } else {
-            // In a real app, you might show a more subtle error message
+        // Basic validation to ensure reason is provided
+        if (!reason.trim()) {
             alert('Please provide a reason for removal.');
+            return;
         }
+        
+        onSubmit(reason);
+        setIsOpen(false); // Close modal on successful submission
     };
 
     const handleClose = () => {
@@ -76,16 +86,41 @@ const RemovalReasonModal: React.FC<RemovalReasonModalProps> = ({ isOpen, setIsOp
                                 REASON FOR REMOVAL
                             </h3>
 
-                            <p className="text-sm text-gray-500 mb-6">
+                            <p className="text-sm text-gray-500 mb-4">
                                 Fill in the required details
                             </p>
 
-                            <textarea
-                                value={reason}
-                                onChange={(e) => setReason(e.target.value)}
-                                placeholder="State the reason"
-                                className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent resize-none text-gray-700"
-                            />
+                            {/* Medicine Information */}
+                            <div className="bg-gray-50 rounded-lg p-4 mb-4 text-left">
+                                <div className="mb-2">
+                                    <span className="font-semibold text-gray-700">Medicine: </span>
+                                    <span className="text-gray-900">{medicineName}</span>
+                                </div>
+                                <div className="mb-2">
+                                    <span className="font-semibold text-gray-700">Category: </span>
+                                    <span className="text-gray-900">{medicineCategory}</span>
+                                </div>
+                                <div>
+                                    <span className="font-semibold text-gray-700">Current Stock: </span>
+                                    <span className="text-green-600 font-bold">{currentStock} units</span>
+                                </div>
+                                <div className="mt-2 text-sm text-red-600 font-medium">
+                                    ⚠️ This will remove the entire stock
+                                </div>
+                            </div>
+
+                            {/* Reason Textarea */}
+                            <div className="mb-6">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2 text-left">
+                                    Reason for Removal:
+                                </label>
+                                <textarea
+                                    value={reason}
+                                    onChange={(e) => setReason(e.target.value)}
+                                    placeholder="State the reason (e.g., expired, damaged, recalled)"
+                                    className="w-full h-24 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent resize-none text-gray-700"
+                                />
+                            </div>
                             
                             <div className="flex justify-center items-center space-x-4 mt-6">
                                 <button
