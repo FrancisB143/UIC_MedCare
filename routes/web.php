@@ -41,5 +41,14 @@ Route::get('/Print', fn() => Inertia::render('Print'));
 Route::get('/About', fn() => Inertia::render('About'));
 Route::get('/Notification', fn() => Inertia::render('Notification'));
 
+// HSMS Consultation Routes
+Route::get('/consultation/student/{id}', fn($id) => Inertia::render('Consultation/StudentProfile', ['id' => $id]));
+Route::get('/consultation/employee/{id}', fn($id) => Inertia::render('Consultation/EmployeeProfile', ['id' => $id]));
+Route::get('/consultation/student/{id}/create', fn($id) => Inertia::render('Consultation/CreateConsultation', ['id' => $id]));
+Route::get('/consultation/employee/{id}/create', fn($id) => Inertia::render('Consultation/CreateConsultation', ['id' => $id]));
+Route::get('/consultation/student/{id}/create/walk-in', fn($id) => Inertia::render('Consultation/WalkIn', ['id' => $id]));
+Route::get('/consultation/employee/{id}/create/walk-in', fn($id) => Inertia::render('Consultation/WalkIn', ['id' => $id]));
+Route::get('/consultation/student/{id}/create/scheduled', fn($id) => Inertia::render('Consultation/Scheduled', ['id' => $id]));
+Route::get('/consultation/employee/{id}/create/scheduled', fn($id) => Inertia::render('Consultation/Scheduled', ['id' => $id]));
 
 Route::post('/api/auth/google', [GoogleAuthController::class, 'authenticate']);

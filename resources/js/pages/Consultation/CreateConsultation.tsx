@@ -1,42 +1,54 @@
-// resources/js/pages/Consultation/Student.tsx
-import React, { useState } from 'react';
-import { router } from '@inertiajs/react';
+import React from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
-    Bell,
     User,
+    ChevronLeft,
+    Bell,
     LayoutDashboard,
+    Search,
     Archive,
     FileText,
-    History,
-    ShieldQuestion,
-    Search,
     Printer,
+    ShieldQuestion,
     GraduationCap,
     Briefcase,
+    History,
     ChevronDown,
     Menu
 } from 'lucide-react';
-import { getStudents } from '../../data/mockData';
 
-const Student: React.FC = () => {
-    const [isSidebarOpen, setSidebarOpen] = useState(true);
-    const [isSearchOpen, setSearchOpen] = useState(false);
-    const [isInventoryOpen, setInventoryOpen] = useState(false);
+const CreateConsultation: React.FC = () => {
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+    const [isSearchOpen, setSearchOpen] = React.useState(false);
+    const [isInventoryOpen, setInventoryOpen] = React.useState(false);
 
     const handleNavigation = (path: string): void => {
-        router.visit(path);
+        navigate(path);
     };
 
     const handleLogout = (): void => {
-        console.log("Logout clicked");
+        localStorage.removeItem("isLoggedIn");
+        navigate("/");
     };
 
     const toggleSidebar = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
-    // Get student data from centralized mock data
-    const students = getStudents();
+    const handleBack = () => {
+        navigate(-1); // Go back to previous page
+    };
+
+    // Navigation handlers for consultation types
+    const handleWalkIn = () => {
+        navigate(`/search/student/${id}/create-consultation/walk-in`);
+    };
+
+    const handleScheduled = () => {
+        navigate(`/search/student/${id}/create-consultation/scheduled`);
+    };
 
     return (
         <>
@@ -65,7 +77,7 @@ const Student: React.FC = () => {
                                 {isSidebarOpen && <p className="text-sm font-medium text-white ml-3 whitespace-nowrap">Dashboard</p>}
                             </div>
 
-                            {/* Search Submenu - Student Active */}
+                            {/* Search Submenu */}
                             <div>
                                 <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => setSearchOpen(!isSearchOpen)}>
                                     <Search className="w-5 h-5 text-white flex-shrink-0" />
@@ -78,7 +90,7 @@ const Student: React.FC = () => {
                                 </div>
                                 {isSidebarOpen && isSearchOpen && (
                                     <div className="mt-1 space-y-1 pl-8">
-                                        <div className="flex items-center p-2 bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/search/student')}>
+                                        <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/search/student')}>
                                             <GraduationCap className="w-5 h-5 text-white flex-shrink-0" />
                                             <p className="text-sm text-white ml-3 whitespace-nowrap">Student</p>
                                         </div>
@@ -151,43 +163,34 @@ const Student: React.FC = () => {
                     {/* Header */}
                     <header className="bg-gradient-to-b from-[#3D1528] to-[#A3386C] shadow-sm border-b border-gray-200 px-7 py-3 z-10">
                         <div className="flex items-center justify-between">
-                            <button onClick={toggleSidebar} className="text-white p-2 rounded-full hover:bg-white/20"><Menu className="w-6 h-6" /></button>
+                            <button onClick={handleBack} className="text-white p-2 rounded-full hover:bg-white/20">
+                                <ChevronLeft className="w-6 h-6" />
+                            </button>
                             <div className="flex items-center"><img src="/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/><h1 className="text-white text-[28px] font-semibold">MEDICARE</h1></div>
-                            <div className="flex items-center"><Bell className="w-6 h-6 text-white cursor-pointer" /></div>
+                            <div className="flex items-center"><Bell className="w-6 h-6 text-white cursor-pointer mr-4" /></div>
                         </div>
                     </header>
 
-                    {/* Student List Content */}
+                    {/* Consultation Type Selection */}
                     <main className="flex-1 p-6 overflow-y-auto bg-white">
-                        <h1 className="text-3xl font-bold text-gray-800 mb-6">Student Patients</h1>
+                        <h1 className="text-3xl font-bold text-gray-800 mb-6">Create Consultation Record</h1>
 
-                        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-[#D4A5B8] text-black">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Age</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Gender</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Course</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {students.map((student) => (
-                                        <tr
-                                            key={student.id}
-                                            className="hover:bg-gray-50 cursor-pointer"
-                                            onClick={() => router.visit(`/consultation/student/${student.id}`)}
-                                        >
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{student.id}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{student.name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{student.age}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{student.gender}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{student.course}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="mb-8">
+                            <h2 className="text-xl font-semibold text-gray-700 mb-4">Consultation Type:</h2>
+                            <div className="space-y-4">
+                                <button
+                                    className="bg-[#A3386C] text-white p-4 rounded-lg hover:bg-[#77536A] w-full"
+                                    onClick={handleWalkIn}
+                                >
+                                    Walk-in
+                                </button>
+                                <button
+                                    className="bg-[#A3386C] text-white p-4 rounded-lg hover:bg-[#77536A] w-full"
+                                    onClick={handleScheduled}
+                                >
+                                    Scheduled
+                                </button>
+                            </div>
                         </div>
                     </main>
                 </div>
@@ -196,4 +199,4 @@ const Student: React.FC = () => {
     );
 };
 
-export default Student;
+export default CreateConsultation;
