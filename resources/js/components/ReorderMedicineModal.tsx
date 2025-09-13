@@ -24,6 +24,7 @@ interface ReorderMedicineModalProps {
     onSubmit: (formData: SubmittedMedicineData) => void;
     medicineName: string;
     category: string;
+    currentStock?: number;
 }
 
 const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({ 
@@ -31,7 +32,8 @@ const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({
     setIsOpen, 
     onSubmit, 
     medicineName, 
-    category 
+    category,
+    currentStock = 0
 }) => {
     
     const initialFormData: ReorderFormData = {
@@ -108,29 +110,29 @@ const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({
 
     // Success View Component
     const SuccessView = () => (
-        <div className="p-8 text-center animate-fade-in">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-green-600 mb-6">
+        <div className="p-6 text-center animate-fade-in">
+            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+            <h2 className="text-xl font-bold text-green-600 mb-4">
                 REORDER SUCCESSFUL!
             </h2>
-            <div className="space-y-3 text-sm text-left bg-gray-50 p-4 rounded-lg border">
+            <div className="space-y-2 text-sm text-left bg-gray-50 p-3 rounded-lg border">
                 <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500">MEDICINE:</span>
-                    <span className="font-medium text-gray-900">{medicineName}</span>
-                </div>
-                 <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500">NEW EXPIRATION:</span>
-                    <span className="font-medium text-gray-900">{formData.expirationDate}</span>
+                    <span className="font-semibold text-gray-500 text-xs">MEDICINE:</span>
+                    <span className="font-medium text-gray-900 text-xs">{medicineName}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500">QUANTITY ADDED:</span>
-                    <span className="font-bold text-red-500 text-base">{formData.quantity}</span>
+                    <span className="font-semibold text-gray-500 text-xs">NEW EXPIRATION:</span>
+                    <span className="font-medium text-gray-900 text-xs">{formData.expirationDate}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="font-semibold text-gray-500 text-xs">QUANTITY ADDED:</span>
+                    <span className="font-bold text-red-500 text-sm">{formData.quantity}</span>
                 </div>
             </div>
-            <div className="flex justify-center pt-8">
+            <div className="flex justify-center pt-6">
                 <button
                     onClick={handleClose}
-                    className="w-full bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-8 rounded-lg transition-colors"
+                    className="w-full bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-6 rounded-lg transition-colors text-sm"
                 >
                     CLOSE
                 </button>
@@ -154,54 +156,70 @@ const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({
                 >
                     <div
                         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                        className="bg-white rounded-xl w-full max-w-md shadow-2xl cursor-default relative overflow-hidden animate-scale-in border-2 border-[#A3386C]"
+                        className="bg-white rounded-xl w-full max-w-sm shadow-2xl cursor-default relative overflow-hidden animate-scale-in border-2 border-[#A3386C]"
                     >
                         {view === 'form' ? (
-                             <div className="p-8 text-center">
-                                <h2 className="text-2xl font-bold text-[#A3386C] mb-6">REORDER MEDICINE</h2>
+                             <div className="p-6 text-center">
+                                <h2 className="text-xl font-bold text-[#A3386C] mb-4">REORDER MEDICINE</h2>
                                 
-                                <div className="space-y-4 text-left">
+                                {/* Current Stock Info */}
+                                <div className="bg-gray-50 rounded-lg p-3 mb-4 text-left">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="font-semibold text-gray-700 text-sm">Current Stock:</span>
+                                        <span className={`font-bold text-base ${currentStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {currentStock} units
+                                        </span>
+                                    </div>
+                                    {currentStock === 0 && (
+                                        <p className="text-red-500 text-xs">⚠️ Medicine is out of stock!</p>
+                                    )}
+                                    {currentStock > 0 && currentStock <= 10 && (
+                                        <p className="text-orange-500 text-xs">⚠️ Low stock - consider reordering</p>
+                                    )}
+                                </div>
+                                
+                                <div className="space-y-3 text-left">
                                     {/* Medicine Name (Display Only) */}
                                     <div>
-                                        <label className="font-semibold text-gray-700">Medicine Name</label>
-                                        <div className="mt-1 p-3 bg-gray-100 border border-gray-300 rounded-md text-gray-500">{medicineName}</div>
+                                        <label className="font-semibold text-gray-700 text-sm">Medicine Name</label>
+                                        <div className="mt-1 p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-500 text-sm">{medicineName}</div>
                                     </div>
                                     
                                     {/* Category (Display Only) */}
                                     <div>
-                                        <label className="font-semibold text-gray-700">Category</label>
-                                        <div className="mt-1 p-3 bg-gray-100 border border-gray-300 rounded-md text-gray-500">{category}</div>
+                                        <label className="font-semibold text-gray-700 text-sm">Category</label>
+                                        <div className="mt-1 p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-500 text-sm">{category}</div>
                                     </div>
 
                                     {/* Date Received */}
                                     <div>
-                                        <label htmlFor="dateReceived" className="font-semibold text-gray-700">Date Received</label>
+                                        <label htmlFor="dateReceived" className="font-semibold text-gray-700 text-sm">Date Received</label>
                                         <input
                                             id="dateReceived"
                                             type="date"
                                             value={formData.dateReceived}
                                             onChange={(e) => handleInputChange('dateReceived', e.target.value)}
-                                            className={`w-full mt-1 p-3 border ${errors.dateReceived ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black`}
+                                            className={`w-full mt-1 p-2 border ${errors.dateReceived ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black text-sm`}
                                         />
                                         {errors.dateReceived && <p className="text-red-500 text-xs mt-1">{errors.dateReceived}</p>}
                                     </div>
                                     
                                     {/* Expiration Date */}
                                     <div>
-                                        <label htmlFor="expirationDate" className="font-semibold text-gray-700">New Expiration Date</label>
+                                        <label htmlFor="expirationDate" className="font-semibold text-gray-700 text-sm">New Expiration Date</label>
                                         <input
                                             id="expirationDate"
                                             type="date"
                                             value={formData.expirationDate}
                                             onChange={(e) => handleInputChange('expirationDate', e.target.value)}
-                                            className={`w-full mt-1 p-3 border ${errors.expirationDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black`}
+                                            className={`w-full mt-1 p-2 border ${errors.expirationDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black text-sm`}
                                         />
                                          {errors.expirationDate && <p className="text-red-500 text-xs mt-1">{errors.expirationDate}</p>}
                                     </div>
                                     
                                     {/* Quantity */}
                                     <div>
-                                        <label htmlFor="quantity" className="font-semibold text-gray-700">Quantity to Add</label>
+                                        <label htmlFor="quantity" className="font-semibold text-gray-700 text-sm">Quantity to Add</label>
                                         <input
                                             id="quantity"
                                             type="number"
@@ -209,15 +227,15 @@ const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({
                                             onChange={(e) => handleInputChange('quantity', parseInt(e.target.value) || '')}
                                             placeholder="Enter quantity"
                                             min="1"
-                                            className={`w-full mt-1 p-3 border ${errors.quantity ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black`}
+                                            className={`w-full mt-1 p-2 border ${errors.quantity ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black text-sm`}
                                         />
                                         {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
                                     </div>
                                 </div>
                                 
-                                <div className="flex justify-center items-center space-x-4 mt-8">
-                                    <button onClick={handleClose} className="w-full bg-transparent hover:bg-gray-100 border border-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-colors">CANCEL</button>
-                                    <button onClick={handleSubmit} className="w-full bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-6 rounded-lg transition-colors cursor-pointer">SUBMIT</button>
+                                <div className="flex justify-center items-center space-x-4 mt-6">
+                                    <button onClick={handleClose} className="w-full bg-transparent hover:bg-gray-100 border border-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">CANCEL</button>
+                                    <button onClick={handleSubmit} className="w-full bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-4 rounded-lg transition-colors cursor-pointer text-sm">SUBMIT</button>
                                 </div>
                             </div>
                         ) : (

@@ -3,7 +3,8 @@ import NotificationBell, { Notification as NotificationType } from '../../compon
 import Sidebar from '../../components/Sidebar';
 import { router } from '@inertiajs/react';
 import { Menu } from 'lucide-react';
-import { clinicBranches, ClinicBranch } from '../../data/branchMedicines';
+import { BranchInventoryService, Branch } from '../../services/branchInventoryService';
+import { UserService } from '../../services/userService';
 
 
 
@@ -12,12 +13,46 @@ const StocksPage: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(true);
-
+    const [myBranch, setMyBranch] = useState<Branch | null>(null);
+    const [otherBranches, setOtherBranches] = useState<Branch[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const notifications: NotificationType[] = [
-        { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
-        { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
+        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
+        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
     ];
+
+    // Load branches on component mount
+    useEffect(() => {
+        loadBranches();
+    }, []);
+
+    const loadBranches = async () => {
+        try {
+            setLoading(true);
+            const currentUser = UserService.getCurrentUser();
+            
+            if (!currentUser) {
+                router.visit('/');
+                return;
+            }
+
+            // Get user's branch
+            const userBranch = await BranchInventoryService.getUserBranchInfo(currentUser.user_id);
+            setMyBranch(userBranch);
+
+            // Get other branches
+            const allBranches = await BranchInventoryService.getAllBranches();
+            const otherBranchesData = allBranches.filter(branch => 
+                userBranch ? branch.branch_id !== userBranch.branch_id : true
+            );
+            setOtherBranches(otherBranchesData);
+        } catch (error) {
+            console.error('Error loading branches:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
 
     const handleNavigation = (path: string): void => router.visit(path);
@@ -27,9 +62,9 @@ const StocksPage: React.FC = () => {
         router.visit("/");
     };
 
-    // Navigate to BranchInventory for My Branch (id=1)
+    // Navigate to BranchInventory for My Branch (no need to pass branch_id anymore)
     const handleMyBranchClick = (): void => {
-        router.visit(`/inventory/branchinventory/1`);
+        router.visit('/inventory/branchinventory');
     };
 
     // Navigate to Otherinventorystocks for other branches
@@ -39,9 +74,18 @@ const StocksPage: React.FC = () => {
 
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
-    // Separate Father Selga Campus (My Branch) from other branches
-    const myBranch = clinicBranches.find(branch => branch.id === 1);
-    const otherBranches = clinicBranches.filter(branch => branch.id !== 1);
+    if (loading) {
+        return (
+            <div className="flex h-screen bg-gray-100">
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A3386C] mx-auto"></div>
+                        <p className="mt-4 text-gray-600">Loading branches...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
@@ -90,8 +134,7 @@ const StocksPage: React.FC = () => {
                                      onClick={handleMyBranchClick}>
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <h4 className="text-xl font-semibold text-gray-800">{myBranch.name}</h4>
-                                            <p className="text-gray-600 mt-1">{myBranch.suffix}</p>
+                                            <h4 className="text-xl font-semibold text-gray-800">{myBranch.branch_name}</h4>
                                             <p className="text-sm text-[#A3386C] mt-2 font-medium">• Manage Inventory • Add/Remove Medicines</p>
                                         </div>
                                         <div className="text-[#A3386C]">
@@ -107,15 +150,14 @@ const StocksPage: React.FC = () => {
                         {/* Other Branches Section */}
                         <div>
                             <h3 className="text-lg font-medium text-gray-700 mb-4">Other Branches</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {otherBranches.map((branch) => (
-                                    <div key={branch.id} 
-                                         className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer transform hover:scale-102 hover:border-[#A3386C]"
-                                         onClick={() => handleOtherBranchClick(branch.id)}>
+                                    <div key={branch.branch_id} 
+                                         className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer transform hover:scale-102 hover:border-[#A3386C]"
+                                         onClick={() => handleOtherBranchClick(branch.branch_id)}>
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <h4 className="text-lg font-semibold text-gray-800">{branch.name}</h4>
-                                                <p className="text-gray-600 mt-1">{branch.suffix}</p>
+                                                <h4 className="text-lg font-semibold text-gray-800">{branch.branch_name}</h4>
                                                 <p className="text-sm text-gray-500 mt-2">• View Only • Request Medicines</p>
                                             </div>
                                             <div className="text-gray-400">

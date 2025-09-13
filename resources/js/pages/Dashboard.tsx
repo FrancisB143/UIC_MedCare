@@ -3,6 +3,7 @@ import NotificationBell, { Notification as NotificationType } from '../component
 import { router } from '@inertiajs/react';
 import Sidebar from '../components/Sidebar';
 import { Menu } from 'lucide-react';
+import { UserService } from '../services/userService';
 
 interface DateTimeData {
     date: string;
@@ -32,9 +33,15 @@ const Dashboard: React.FC = () => {
     const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
 
     const notifications: NotificationType[] = [
-        { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
-        { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
+        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
+        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
     ];
+
+    // Debug: Log authentication status on Dashboard load
+    useEffect(() => {
+        console.log('Dashboard loaded. Auth status:', UserService.isLoggedIn());
+        console.log('Current user:', UserService.getCurrentUser());
+    }, []);
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -46,12 +53,12 @@ const Dashboard: React.FC = () => {
     const { date, time } = dateTime;
 
     const handleNavigation = (path: string): void => {
+        // Ensure smooth navigation without authentication interference
         router.visit(path);
     };
 
     const handleLogout = (): void => {
-        localStorage.removeItem("isLoggedIn");
-        router.visit('/');
+        router.post('/logout');
     };
 
     const toggleSidebar = () => {

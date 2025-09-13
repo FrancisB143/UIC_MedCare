@@ -49,8 +49,8 @@ const About: React.FC = () => {
     const [isInventoryOpen, setInventoryOpen] = useState(false);
 
     const notifications: NotificationType[] = [
-        { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
-        { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
+        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
+        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
     ];
     
     const creators = [

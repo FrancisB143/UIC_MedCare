@@ -1,3 +1,5 @@
+// resources/js/app.tsx
+
 import '../css/app.css';
 
 import { createInertiaApp } from '@inertiajs/react';
@@ -7,8 +9,8 @@ import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-
-const clientId = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+// Correctly load the Client ID from the .env file
+const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 createInertiaApp({
     title: (title) => title ? `${title} - ${appName}` : appName,

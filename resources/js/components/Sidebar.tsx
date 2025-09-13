@@ -15,6 +15,7 @@ import {
     LogOut
 } from 'lucide-react';
 import LogoutModal from './LogoutModal';
+import { UserService } from '../services/userService';
 
 interface SidebarProps {
     isSidebarOpen: boolean;
@@ -38,6 +39,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     activeMenu
 }) => {
     const [isLogoutModalOpen, setLogoutModalOpen] = useState(false);
+    const currentUser = UserService.getCurrentUser();
+
+    const handleLogoutConfirm = () => {
+        UserService.clearUserSession();
+        handleLogout();
+    };
 
     return (
         <>
@@ -49,11 +56,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                             <User className="w-6 h-6 text-[#A3386C]" />
                         </div>
                         <div className={`flex flex-col items-center transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
-                            <p className="text-[20px] font-semibold">John Doe</p>
+                            <p className="text-[20px] font-semibold">{currentUser?.name || 'John Doe'}</p>
                             <p className="text-sm">Nurse</p>
                         </div>
                     </div>
-                    <p className={`text-center text-xs transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>Fr Selga, Davao City</p>
+                    <p className={`text-center text-xs transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
+                        {currentUser?.branch_name || 'Branch Name'}
+                    </p>
                 </div>
 
                 {/* Navigation */}
@@ -62,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         {/* Dashboard */}
                         <div
                             className={`flex items-center px-4 py-3 rounded-lg cursor-pointer ${activeMenu === 'dashboard' ? 'bg-[#77536A]' : 'hover:bg-[#77536A]'}`}
-                            onClick={() => handleNavigation('/')}
+                            onClick={() => handleNavigation('/dashboard')}
                         >
                             <LayoutDashboard className="w-5 h-5 text-white flex-shrink-0" />
                             {isSidebarOpen && <p className="text-sm font-medium text-white ml-3 whitespace-nowrap">Dashboard</p>}
@@ -191,7 +200,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <LogoutModal 
                 isOpen={isLogoutModalOpen}
                 setIsOpen={setLogoutModalOpen}
-                onLogout={handleLogout}
+                onLogout={handleLogoutConfirm}
             />
         </>
     );

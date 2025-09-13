@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
-import { Menu } from 'lucide-react';
+import { Menu, AlertTriangle } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import NotificationBell, { Notification as NotificationType } from '../components/NotificationBell';
+import { supabase } from '../lib/supabaseClient';
+import { UserService } from '../services/userService';
+import { NotificationService } from '../services/notificationService';
 
 // A more detailed interface for the full notification page
 interface FullNotification {
-    id: number;
+    id: number | string;
     title: string;
     message: string;
     time: string;
@@ -41,57 +44,284 @@ const Notification: React.FC = () => {
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(false);
     const [dateTime, setDateTime] = useState<DateTimeData>(getCurrentDateTime());
+    const [lowStockMedicines, setLowStockMedicines] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [bellNotifications, setBellNotifications] = useState<NotificationType[]>([]);
+    const [fullNotifications, setFullNotifications] = useState<FullNotification[]>([]);
 
-    // Close dropdowns on mount
+    // Sample dummy notifications similar to notification bell
+    const dummyNotifications: NotificationType[] = [
+        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
+        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
+    ];
+
+    // Initialize with dummy notifications on component mount
+    useEffect(() => {
+        // Create initial dummy notifications for display
+        const initialDummy: FullNotification[] = dummyNotifications.map(notif => {
+            let icon;
+            let title;
+            
+            switch(notif.type) {
+                case 'info':
+                    icon = (
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                            <img src="/images/medicine.jpg" alt="Medicine Icon" className="w-full h-full object-cover" />
+                        </div>
+                    );
+                    title = 'Medicine Update';
+                    break;
+                case 'success':
+                    icon = (
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
+                            <img src="/images/nurse.jpg" alt="Request Icon" className="w-full h-full object-cover" />
+                        </div>
+                    );
+                    title = 'Request Received';
+                    break;
+                default:
+                    icon = (
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                            <AlertTriangle className="w-6 h-6 text-gray-600" />
+                        </div>
+                    );
+                    title = 'Notification';
+            }
+            
+            return {
+                id: notif.id,
+                title,
+                message: notif.message,
+                time: new Date(notif.createdAt).toLocaleDateString(),
+                icon
+            };
+        });
+        
+        setFullNotifications(initialDummy);
+    }, []);
+
+    // Check for low stock medicines based on reorder levels
+    const checkLowStockMedicines = async () => {
+        try {
+            setIsLoading(true);
+            
+            // Get all current stock levels by summing quantities for each medicine
+            const { data: stockRecords, error: stockError } = await supabase
+                .from('medicine_stock_in')
+                .select('medicine_id, quantity');
+
+            if (stockError) {
+                console.error('Error loading stock records:', stockError);
+                return [];
+            }
+
+            // Calculate total quantities for each medicine
+            const currentStockLevels = stockRecords?.reduce((acc, record) => {
+                const medicineId = record.medicine_id;
+                const quantity = record.quantity || 0;
+                
+                if (acc[medicineId]) {
+                    acc[medicineId] += quantity;
+                } else {
+                    acc[medicineId] = quantity;
+                }
+                return acc;
+            }, {} as Record<number, number>) || {};
+
+            // Get reorder levels from medicine_reorder_levels table
+            const { data: reorderLevels, error: reorderError } = await supabase
+                .from('medicine_reorder_levels')
+                .select(`
+                    medicine_id,
+                    minimum_stock_level,
+                    medicines (
+                        medicine_name
+                    )
+                `);
+
+            if (reorderError) {
+                console.error('Error loading reorder levels:', reorderError);
+                return [];
+            }
+
+            // Find medicines that are below their reorder level
+            const lowStockMedicines = [];
+            for (const reorderLevel of reorderLevels || []) {
+                const currentStock = currentStockLevels[reorderLevel.medicine_id] || 0;
+                const minimumLevel = reorderLevel.minimum_stock_level || 50;
+                
+                if (currentStock <= minimumLevel) {
+                    lowStockMedicines.push({
+                        medicine_id: reorderLevel.medicine_id,
+                        medicine_name: (reorderLevel.medicines as any)?.medicine_name,
+                        current_stock: currentStock,
+                        minimum_level: minimumLevel
+                    });
+                }
+            }
+
+            return lowStockMedicines;
+        } catch (error) {
+            console.error('Error checking low stock medicines:', error);
+            return [];
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Close dropdowns on mount and load notifications
     useEffect(() => {
         setSearchOpen(false);
         setInventoryOpen(false);
+        
+        // Always load dummy notifications first
+        loadNotifications();
+        
+        // Load low stock medicines
+        checkLowStockMedicines().then(lowStock => {
+            setLowStockMedicines(lowStock);
+            // Reload notifications after low stock data is available
+            setTimeout(() => loadNotifications(), 100);
+        });
     }, []);
 
-    // Dummy data for the notifications pop-up in the header
-    const bellNotifications: NotificationType[] = [
-        { id: 1, type: 'updatedMedicine', message: 'Updated Medicine', time: '5hrs ago' },
-        { id: 2, type: 'medicineRequest', message: 'Medicine Request Received', time: '10hrs ago' },
-    ];
-    
-    // Dummy data for the main notification page, matching the image
-    const fullNotifications: FullNotification[] = [
-        {
-            id: 1,
-            title: 'Updated Medicine',
-            message: 'Paracetamol added 2x',
-            time: '5hrs ago',
-            icon: <img src="/images/medicine.jpg" alt="Update" className="w-10 h-10 rounded-full" /> 
-        },
-        {
-            id: 2,
-            title: 'Medicine Request Received',
-            message: 'Nurse Jane',
-            time: '10hrs ago',
-            icon: <img src="/images/nurse.jpg" alt="Request" className="w-10 h-10 rounded-full" />
-        },
-        {
-            id: 3,
-            title: 'Deleted Medicine',
-            message: 'Paracetamol deleted 100x',
-            time: '12hrs ago',
-            icon: <img src="/images/medicine.jpg" alt="Delete" className="w-10 h-10 rounded-full" />
-        },
-        {
-            id: 4,
-            title: 'Dispensed Medicine',
-            message: 'Decolgen Forte 5x',
-            time: '15hrs ago',
-            icon: <img src="/images/nurse.jpg" alt="Dispense" className="w-10 h-10 rounded-full" />
-        },
-    ];
+    // Generate low stock notifications from lowStockMedicines
+    const generateLowStockNotifications = (): NotificationType[] => {
+        if (lowStockMedicines.length === 0) return [];
+        
+        const currentTime = new Date().toISOString();
+        return lowStockMedicines.map((medicine) => ({
+            id: `low-stock-${medicine.medicine_id}`,
+            type: 'warning' as const,
+            message: `Low Stock Alert: ${medicine.medicine_name} has only ${medicine.current_stock} units remaining`,
+            isRead: false,
+            createdAt: currentTime
+        }));
+    };
+
+    // Combine dummy notifications with low stock notifications
+    const getAllNotifications = (): NotificationType[] => {
+        const lowStockNotifs = generateLowStockNotifications();
+        return [...dummyNotifications, ...lowStockNotifs];
+    };
+
+    // Load notifications from localStorage and dummy data
+    const loadNotifications = () => {
+        try {
+            const allNotifications = getAllNotifications();
+            setBellNotifications(allNotifications);
+            
+            // Create detailed notifications for the main page
+            const detailed: FullNotification[] = allNotifications.map(notif => {
+                let icon;
+                let title;
+                
+                switch(notif.type) {
+                    case 'warning':
+                        icon = (
+                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                <AlertTriangle className="w-6 h-6 text-red-600" />
+                            </div>
+                        );
+                        title = 'Low Stock Alert';
+                        break;
+                    case 'info':
+                        icon = (
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                                <img src="/images/medicine.jpg" alt="Medicine Icon" className="w-full h-full object-cover" />
+                            </div>
+                        );
+                        title = 'Medicine Update';
+                        break;
+                    case 'success':
+                        icon = (
+                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
+                                <img src="/images/nurse.jpg" alt="Request Icon" className="w-full h-full object-cover" />
+                            </div>
+                        );
+                        title = 'Request Received';
+                        break;
+                    default:
+                        icon = (
+                            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                <AlertTriangle className="w-6 h-6 text-gray-600" />
+                            </div>
+                        );
+                        title = 'Notification';
+                }
+                
+                return {
+                    id: notif.id,
+                    title,
+                    message: notif.message,
+                    time: new Date(notif.createdAt).toLocaleDateString(),
+                    icon
+                };
+            });
+            
+            setFullNotifications(detailed);
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+        }
+    };
+
+    // Mark notifications as read
+    const markNotificationsAsRead = () => {
+        setBellNotifications([]);
+        // Keep dummy notifications visible in the main page
+        const dummyDetailed: FullNotification[] = dummyNotifications.map(notif => {
+            let icon;
+            let title;
+            
+            switch(notif.type) {
+                case 'info':
+                    icon = (
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                            <img src="/images/medicine.jpg" alt="Medicine Icon" className="w-full h-full object-cover" />
+                        </div>
+                    );
+                    title = 'Medicine Update';
+                    break;
+                case 'success':
+                    icon = (
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
+                            <img src="/images/nurse.jpg" alt="Request Icon" className="w-full h-full object-cover" />
+                        </div>
+                    );
+                    title = 'Request Received';
+                    break;
+                default:
+                    icon = (
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                            <AlertTriangle className="w-6 h-6 text-gray-600" />
+                        </div>
+                    );
+                    title = 'Notification';
+            }
+            
+            return {
+                id: notif.id,
+                title,
+                message: notif.message,
+                time: new Date(notif.createdAt).toLocaleDateString(),
+                icon
+            };
+        });
+        setFullNotifications(dummyDetailed);
+    };
 
     useEffect(() => {
+        // Load notifications when component mounts and when low stock data changes
+        if (lowStockMedicines.length >= 0) { // Check for array (even if empty)
+            loadNotifications();
+        }
+        
+        // Update time every second
         const timer = setInterval(() => {
             setDateTime(getCurrentDateTime());
         }, 1000);
         return () => clearInterval(timer);
-    }, []);
+    }, [lowStockMedicines]); // Add lowStockMedicines as dependency
 
     const handleNavigation = (path: string): void => {
         router.visit(path);
@@ -138,6 +368,7 @@ const Notification: React.FC = () => {
                         <NotificationBell
                             notifications={bellNotifications}
                             onSeeAll={() => handleNavigation('/notification')}
+                            onMarkAsRead={markNotificationsAsRead}
                         />
                     </div>
                 </header>

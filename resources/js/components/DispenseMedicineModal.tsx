@@ -7,9 +7,18 @@ interface DispenseMedicineModalProps {
     setIsOpen: (isOpen: boolean) => void;
     onSubmit: (quantity: number) => void;
     currentStock: number;
+    medicineName?: string;
+    medicineCategory?: string;
 }
 
-const DispenseMedicineModal: React.FC<DispenseMedicineModalProps> = ({ isOpen, setIsOpen, onSubmit, currentStock }) => {
+const DispenseMedicineModal: React.FC<DispenseMedicineModalProps> = ({ 
+    isOpen, 
+    setIsOpen, 
+    onSubmit, 
+    currentStock, 
+    medicineName = 'Unknown Medicine',
+    medicineCategory = 'No Category'
+}) => {
     
     const [quantity, setQuantity] = useState('');
 
@@ -64,8 +73,24 @@ const DispenseMedicineModal: React.FC<DispenseMedicineModalProps> = ({ isOpen, s
                                 DISPENSE MEDICINE
                             </h2>
                             
+                            {/* Medicine Information */}
+                            <div className="bg-gray-50 rounded-lg p-4 mb-4 text-left">
+                                <div className="mb-2">
+                                    <span className="font-semibold text-gray-700">Medicine: </span>
+                                    <span className="text-gray-900">{medicineName}</span>
+                                </div>
+                                <div className="mb-2">
+                                    <span className="font-semibold text-gray-700">Category: </span>
+                                    <span className="text-gray-900">{medicineCategory}</span>
+                                </div>
+                                <div>
+                                    <span className="font-semibold text-gray-700">Current Stock: </span>
+                                    <span className="text-green-600 font-bold">{currentStock} units</span>
+                                </div>
+                            </div>
+                            
                             <p className="text-md text-gray-700 mb-3">
-                                Type the quantity:
+                                Enter quantity to dispense:
                             </p>
 
                             <input
