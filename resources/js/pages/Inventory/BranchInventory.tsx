@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Swal from 'sweetalert2';
 import NotificationBell, { Notification as NotificationType } from '../../components/NotificationBell';
 import Sidebar from '../../components/Sidebar';
 import AddMedicineModal from '../../components/AddMedicineModal';
@@ -10,7 +11,8 @@ import { ArrowLeft, Search, Menu, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { UserService } from '../../services/userService';
 import { NotificationService } from '../../services/notificationService';
-import { BranchInventoryService, BranchInventoryItem, Branch, Medicine } from '../../services/branchInventoryService';
+import { BranchInventoryService, BranchInventoryItem, Branch, Medicine, MedicineDeletedRequest } from '../../services/branchInventoryService';
+import { HistoryLogService } from '../../services/HistoryLogService';
 
 // INTERFACES
 interface DateTimeData {
@@ -163,14 +165,32 @@ const BranchInventoryPage: React.FC = () => {
             
             setCurrentUser(user);
             
-            // Get user's branch info
-            const branchInfo = await BranchInventoryService.getUserBranchInfo(user.user_id);
-            if (!branchInfo) {
-                throw new Error('User is not assigned to any branch.');
+            // Get user's branch info - use current user's branch data first, then API as fallback
+            let branchInfo;
+            if (user.branch_id && user.branch_name) {
+                branchInfo = {
+                    branch_id: user.branch_id,
+                    branch_name: user.branch_name,
+                    address: undefined, // Will be populated by API if available
+                    location: undefined // Keep for backward compatibility
+                };
+                console.log('Using user branch data:', branchInfo);
+            } else {
+                // Fallback to API call if branch info not in user data
+                branchInfo = await BranchInventoryService.getUserBranchInfo(user.user_id);
+                if (!branchInfo) {
+                    console.warn('Could not fetch user branch info, using fallback data');
+                    branchInfo = {
+                        branch_id: 1,
+                        branch_name: 'System Branch',
+                        address: 'Error loading branch data'
+                    };
+                }
+                console.log('Using API branch data:', branchInfo);
             }
             
             setBranchInfo(branchInfo);
-            console.log('User branch info:', branchInfo);
+            console.log('Final branch info:', branchInfo);
             
             // Load medicines for the dropdown/reference
             const medicines = await BranchInventoryService.getAllMedicines();
@@ -184,7 +204,12 @@ const BranchInventoryPage: React.FC = () => {
             
         } catch (error) {
             console.error('Error loading inventory data:', error);
-            alert(error instanceof Error ? error.message : 'Failed to load inventory data');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error instanceof Error ? error.message : 'Failed to load inventory data',
+                confirmButtonText: 'OK'
+            });
         } finally {
             setIsLoading(false);
         }
@@ -215,51 +240,8 @@ const BranchInventoryPage: React.FC = () => {
                 console.log('Branch info:', branchInfo);
                 console.log('Current user:', currentUser);
                 
-                // Test database connectivity first
-                console.log('Testing database connection...');
-                try {
-                    const { data: testData, error: testError } = await supabase
-                        .from('medicine_stock_in')
-                        .select('medicine_stock_in_id')
-                        .limit(1);
-                    
-                    if (testError) {
-                        console.error('Database connection test failed:', testError);
-                        alert(`Database connection error: ${testError.message}`);
-                        return;
-                    }
-                    console.log('✅ Database connection test passed');
-                } catch (dbError) {
-                    console.error('Database connection error:', dbError);
-                    alert('Database connection failed. Please check your internet connection.');
-                    return;
-                }
-
-                // Check if medicine_deleted table exists
-                console.log('Testing medicine_deleted table...');
-                try {
-                    const { data: deletedTest, error: deletedError } = await supabase
-                        .from('medicine_deleted')
-                        .select('*')
-                        .limit(1);
-                    
-                    if (deletedError) {
-                        console.error('medicine_deleted table test failed:', deletedError);
-                        console.log('⚠️ medicine_deleted table may not exist, creating manual record...');
-                        
-                        // If medicine_deleted table doesn't exist, we'll create a log record differently
-                        // For now, let's just mark the stock as "deleted" by setting quantity to 0
-                        // or use a different approach
-                        
-                        alert(`Medicine deletion failed: medicine_deleted table is not accessible (${deletedError.message}). Please contact your administrator to set up the medicine_deleted table.`);
-                        return;
-                    }
-                    console.log('✅ medicine_deleted table exists and is accessible');
-                } catch (tableError) {
-                    console.error('Table check error:', tableError);
-                    alert('Unable to verify database tables. Please contact your administrator.');
-                    return;
-                }
+                // Database connectivity tests removed - now using MSSQL API
+                console.log('Using MSSQL API - no direct database connectivity tests needed');
 
                 const currentQuantity = medicineToDelete.quantity || 0;
                 
@@ -269,31 +251,53 @@ const BranchInventoryPage: React.FC = () => {
                     console.log('Stock record ID:', medicineToDelete.medicine_stock_in_id);
                     console.log('Quantity to delete:', currentQuantity);
                     
-                    // Delete the specific stock record directly
-                    const success = await BranchInventoryService.deleteMedicine(
-                        medicineToDelete.medicine_stock_in_id,
-                        currentQuantity,
-                        reason || 'Medicine removed from inventory',
-                        currentUser.user_id
-                    );
+                    // Delete the specific stock record directly using new medicine_deleted schema
+                    const deleteRequest: MedicineDeletedRequest = {
+                        medicineStockInId: medicineToDelete.medicine_stock_in_id,
+                        quantity: currentQuantity,
+                        description: reason || 'Medicine removed from inventory',
+                        branchId: branchInfo.branch_id
+                    };
+                    
+                    const success = await BranchInventoryService.deleteMedicine(deleteRequest);
 
                     if (!success) {
                         console.error('❌ Direct deletion failed');
-                        alert('Failed to remove medicine. Please check the console for details and try again.');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Removal Failed',
+                            text: 'Failed to remove medicine. Please check the console for details and try again.',
+                            confirmButtonText: 'OK'
+                        });
                         return;
                     }
                     
                     console.log('✅ Direct deletion succeeded');
+                    
+                    // History logging is now handled by database triggers
+                    // No need for manual logging here
                 } else {
                     console.log('❌ No medicine_stock_in_id found, cannot delete individual record');
-                    alert('Cannot delete medicine: missing stock record ID. Please refresh the page and try again.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Cannot Delete Medicine',
+                        text: 'Cannot delete medicine: missing stock record ID. Please refresh the page and try again.',
+                        confirmButtonText: 'OK'
+                    });
                     return;
                 }
 
                 console.log('✅ Successfully removed medicine from branch inventory');
                 
-                // Show success message
-                alert(`Successfully removed ${currentQuantity} units of ${medicineToDelete.medicine?.medicine_name}. Medicine has been completely removed from branch inventory.`);
+                // Show success alert after successful deletion
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Medicine Removed Successfully',
+                    text: `${medicineToDelete?.medicine_name || 'Medicine'} has been successfully removed from inventory.`,
+                    confirmButtonText: 'OK',
+                    timer: 3000,
+                    timerProgressBar: true
+                });
 
                 setMedicineToDelete(null);
                 setRemovalModalOpen(false);
@@ -309,7 +313,12 @@ const BranchInventoryPage: React.FC = () => {
                     message: error instanceof Error ? error.message : 'Unknown error',
                     stack: error instanceof Error ? error.stack : 'No stack trace'
                 });
-                alert(`An unexpected error occurred: ${error instanceof Error ? error.message : 'Please try again.'}`);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Unexpected Error',
+                    text: `An unexpected error occurred: ${error instanceof Error ? error.message : 'Please try again.'}`,
+                    confirmButtonText: 'OK'
+                });
             }
         } else {
             console.error('❌ Missing required data for deletion:', {
@@ -317,7 +326,12 @@ const BranchInventoryPage: React.FC = () => {
                 branchInfo: !!branchInfo,
                 currentUser: !!currentUser
             });
-            alert('Missing required information. Please refresh the page and try again.');
+            Swal.fire({
+                icon: 'error',
+                title: 'Missing Information',
+                text: 'Missing required information. Please refresh the page and try again.',
+                confirmButtonText: 'OK'
+            });
         }
     };
 
@@ -335,31 +349,47 @@ const BranchInventoryPage: React.FC = () => {
                 console.log(`Dispensing ${quantity} of ${medicineToDispense.medicine?.medicine_name}. Current: ${currentQuantity}, New: ${newQuantity}`);
 
                 if (newQuantity < 0) {
-                    alert('Cannot dispense more than available quantity');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid Quantity',
+                        text: 'Cannot dispense more than available quantity',
+                        confirmButtonText: 'OK'
+                    });
                     return;
                 }
 
                 // Use the new stock out system
-                const success = await BranchInventoryService.dispenseMedicineByMedicineId(
-                    medicineToDispense.medicine_id,
-                    branchInfo.branch_id,
-                    currentUser.user_id,
-                    quantity
-                );
+                const result = await BranchInventoryService.dispenseMedicineStockOut({
+                    medicineStockInId: medicineToDispense.medicine_stock_in_id,
+                    quantity: quantity,
+                    dispensedBy: currentUser.user_id,
+                    branchId: branchInfo.branch_id
+                });
 
-                if (!success) {
-                    alert('Failed to dispense medicine. Please try again.');
+                if (!result || !result.success) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Dispense Failed',
+                        text: 'Failed to dispense medicine. Please try again.',
+                        confirmButtonText: 'OK'
+                    });
                     return;
                 }
 
                 console.log('Successfully dispensed medicine using stock out system');
                 
+                // History logging is now handled by database triggers
+                // No need for manual logging here
+                
                 // Show success message
-                if (newQuantity === 0) {
-                    alert(`Successfully dispensed ${quantity} units. Medicine is now out of stock.`);
-                } else {
-                    alert(`Successfully dispensed ${quantity} units. Remaining quantity: ${newQuantity}`);
-                }
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Medicine Dispensed Successfully!',
+                    text: `${quantity} units of ${medicineToDispense.medicine?.medicine_name} have been dispensed.`,
+                    confirmButtonText: 'OK',
+                    timer: 3000,
+                    timerProgressBar: true
+                });
 
                 setMedicineToDispense(null);
                 // Reload data after dispensing
@@ -377,7 +407,21 @@ const BranchInventoryPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error('Unexpected error during dispensing:', error);
-                alert('An unexpected error occurred. Please try again.');
+                
+                // Show more detailed error message
+                let errorMessage = 'An unexpected error occurred. ';
+                if (error instanceof Error) {
+                    errorMessage += error.message;
+                } else {
+                    errorMessage += 'Please try again.';
+                }
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Dispense Failed',
+                    text: errorMessage,
+                    confirmButtonText: 'OK'
+                });
             }
         }
     };
@@ -403,35 +447,52 @@ const BranchInventoryPage: React.FC = () => {
                 const stockInRecord = await BranchInventoryService.addMedicineStockIn(
                     medicineToReorder.medicine_id,
                     branchInfo.branch_id,
-                    currentUser.user_id,
                     formData.quantity,
                     formData.dateReceived,
-                    formData.expirationDate
+                    formData.expirationDate,
+                    currentUser.user_id
                 );
 
                 if (!stockInRecord) {
-                    alert('Failed to add new medicine stock. Please try again.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Add Stock Failed',
+                        text: 'Failed to add new medicine stock. Please try again.',
+                        confirmButtonText: 'OK'
+                    });
                     return;
                 }
 
                 console.log('Successfully created new stock in record:', stockInRecord);
                 
-                // Show success message with details
-                alert(`Successfully added ${formData.quantity} units of ${formData.medicineName} to inventory.\n\nNew Entry Details:\n- Expiration Date: ${new Date(formData.expirationDate).toLocaleDateString()}\n- Date Received: ${new Date(formData.dateReceived).toLocaleDateString()}\n- Quantity: ${formData.quantity} units\n\nThis creates a separate inventory record with its own expiration tracking.`);
+                // History logging is now handled by database triggers
+                // No need for manual logging here
+                
+                // Success message removed as requested
 
                 setMedicineToReorder(null);
                 // Reload data to show the new separate entry
                 await loadInventoryData();
             } catch (error) {
                 console.error('Unexpected error during reorder:', error);
-                alert('An unexpected error occurred. Please try again.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Unexpected Error',
+                    text: 'An unexpected error occurred. Please try again.',
+                    confirmButtonText: 'OK'
+                });
             }
         }
     };
 
     const handleAddMedicineSubmit = async (medicineData: MedicineFormData) => {
         if (!currentUser || !branchInfo) {
-            alert('Please log in and ensure you are assigned to a branch.');
+            Swal.fire({
+                icon: 'error',
+                title: 'Authentication Required',
+                text: 'Please log in and ensure you are assigned to a branch.',
+                confirmButtonText: 'OK'
+            });
             return;
         }
 
@@ -464,10 +525,10 @@ const BranchInventoryPage: React.FC = () => {
             const stockInRecord = await BranchInventoryService.addMedicineStockIn(
                 medicine.medicine_id,
                 branchInfo.branch_id,
-                currentUser.user_id,
                 parseInt(medicineData.quantity.toString()),
                 medicineData.dateReceived,
-                medicineData.expirationDate
+                medicineData.expirationDate,
+                currentUser.user_id
             );
 
             if (!stockInRecord) {
@@ -476,12 +537,14 @@ const BranchInventoryPage: React.FC = () => {
 
             console.log('Medicine and stock added successfully using stock in system!');
             
+            // History logging is now handled by database triggers
+            // No need for manual logging here
+            
             // Close modal and reload data
             setAddMedicineModalOpen(false);
             await loadInventoryData();
             
-            // Show success message
-            alert(`Medicine "${medicineData.medicineName}" has been successfully added to the inventory!`);
+            // Success message removed as requested
             
         } catch (error) {
             console.error('Error adding medicine:', error);
@@ -498,7 +561,12 @@ const BranchInventoryPage: React.FC = () => {
             // Check browser console for more details
             errorMessage += '\n\nPlease check the browser console for more details.';
             
-            alert(errorMessage);
+            Swal.fire({
+                icon: 'error',
+                title: 'Failed to Add Medicine',
+                text: errorMessage,
+                confirmButtonText: 'OK'
+            });
         } finally {
             setIsLoading(false);
         }

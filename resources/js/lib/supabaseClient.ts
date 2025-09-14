@@ -1,16 +1,31 @@
-import { createClient } from '@supabase/supabase-js'
+// DISABLED: Supabase client replaced with MSSQL
+// This file is kept for compatibility but functionality is disabled
 
-// Get Supabase credentials from environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+console.warn('⚠️  Supabase client disabled - using MSSQL database instead');
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
+// Mock Supabase client to prevent initialization errors
+export const supabase = {
+  from: () => ({
+    select: () => Promise.resolve({ data: [], error: null }),
+    insert: () => Promise.resolve({ data: [], error: null }),
+    update: () => Promise.resolve({ data: [], error: null }),
+    delete: () => Promise.resolve({ data: [], error: null }),
+    upsert: () => Promise.resolve({ data: [], error: null }),
+  }),
+  auth: {
+    getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+    signInWithPassword: () => Promise.resolve({ data: { user: null }, error: null }),
+    signOut: () => Promise.resolve({ error: null }),
+  },
+  storage: {
+    from: () => ({
+      upload: () => Promise.resolve({ data: null, error: null }),
+      download: () => Promise.resolve({ data: null, error: null }),
+    }),
+  },
+};
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-// Database types for your Supabase tables
+// Database types for compatibility (no longer used)
 export type Database = {
   public: {
     Tables: {

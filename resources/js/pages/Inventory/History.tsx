@@ -4,7 +4,6 @@ import Sidebar from '../../components/Sidebar';
 import { router } from '@inertiajs/react';
 import { UserService } from '../../services/userService';
 import { NotificationService } from '../../services/notificationService';
-import { BranchInventoryService, MedicineStockIn, MedicineStockOut, MedicineDeleted } from '../../services/branchInventoryService';
 import { HistoryLogService, HistoryLog } from '../../services/HistoryLogService';
 import {
     History as HistoryIcon,
@@ -21,80 +20,12 @@ import {
     User
 } from 'lucide-react';
 
-interface ActivityEntry {
-    id: string;
-    type: 'reorder' | 'dispense' | 'remove' | 'add';
-    medicine_name: string;
-    quantity: number;
-    description: string;
-    timestamp: string;
-    user_name: string;
-}
-
-function getCurrentDateTime() {
-    const now = new Date();
-    const date = now.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-    const time = now.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-    });
-    return { date, time };
-}
-
-// Helper functions to extract data from history logs
-function getMedicineNameFromHistoryLog(log: HistoryLog): string {
-    // For ADD actions - medicine added to system (from medicines table)
-    if (log.action_type === 'ADD' && log.medicine?.medicine_name) {
-        return log.medicine.medicine_name;
-    }
-    // For REORDER actions - restocking inventory (from medicine_stock_in)
-    if (log.medicine_stock_in?.medicine?.medicine_name) {
-        return log.medicine_stock_in.medicine.medicine_name;
-    }
-    // For DISPENSE actions
-    if (log.medicine_stock_out?.medicine?.medicine_name) {
-        return log.medicine_stock_out.medicine.medicine_name;
-    }
-    // For REMOVE actions
-    if (log.medicine_deleted?.medicine_name) {
-        return log.medicine_deleted.medicine_name;
-    }
-    // For REORDER requests
-    if (log.medicine_reorder?.medicine?.medicine_name) {
-        return log.medicine_reorder.medicine.medicine_name;
-    }
-    return 'Unknown Medicine';
-}
-
-function getQuantityFromHistoryLog(log: HistoryLog): number {
-    if (log.medicine_stock_in?.quantity) {
-        return log.medicine_stock_in.quantity;
-    }
-    if (log.medicine_stock_out?.quantity_dispensed) {
-        return log.medicine_stock_out.quantity_dispensed;
-    }
-    if (log.medicine_deleted?.quantity_deleted) {
-        return log.medicine_deleted.quantity_deleted;
-    }
-    if (log.medicine_reorder?.quantity_requested) {
-        return log.medicine_reorder.quantity_requested;
-    }
-    return 0;
-}
-
 const History: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('date');
-    const [activities, setActivities] = useState<ActivityEntry[]>([]);
     const [historyLogs, setHistoryLogs] = useState<HistoryLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -123,70 +54,12 @@ const History: React.FC = () => {
             
             if (!currentUser) return;
 
-            console.log('Loading comprehensive activity history...');
+            console.log('Loading history log data for branch:', currentUser.branch_id);
 
-            // First, load from new history_log system
-            try {
-                const logs = await HistoryLogService.getBranchHistoryLogs(currentUser.branch_id, 200);
-                setHistoryLogs(logs);
-                console.log('Loaded history logs:', logs.length);
-            } catch (error) {
-                console.warn('Failed to load history logs (table may not exist):', error);
-                setHistoryLogs([]);
-            }
-
-            const activities: ActivityEntry[] = [];
-
-            // Get stock in records (stock additions/reorders) for current user's branch
-            const stockInRecords = await BranchInventoryService.getBranchStockInRecords(currentUser.branch_id);
-            stockInRecords.forEach(record => {
-                // Use timestamp_dispensed if available, otherwise fall back to date_received
-                const activityTimestamp = (record as any).timestamp_dispensed || record.date_received;
-                
-                activities.push({
-                    id: `stock_in_${record.medicine_stock_in_id}`,
-                    type: 'reorder', // This is actually restocking/reordering existing medicines
-                    medicine_name: record.medicine?.medicine_name || 'Unknown Medicine',
-                    quantity: record.quantity,
-                    description: `Medicine restocked`,
-                    timestamp: activityTimestamp,
-                    user_name: record.user?.name || 'Unknown User'
-                });
-            });
-
-            // Get stock out records (dispensed) for current user's branch
-            const stockOutRecords = await BranchInventoryService.getBranchStockOutRecords(currentUser.branch_id);
-            stockOutRecords.forEach(record => {
-                activities.push({
-                    id: `stock_out_${record.medicine_stock_out_id}`,
-                    type: 'dispense',
-                    medicine_name: record.medicine_stock_in?.medicine?.medicine_name || 'Unknown Medicine',
-                    quantity: record.quantity_dispensed,
-                    description: 'Medicine dispensed',
-                    timestamp: record.timestamp_dispensed,
-                    user_name: record.user?.name || 'Unknown User'
-                });
-            });
-
-            // Get deleted medicine records for current user's branch
-            const deletedRecords = await BranchInventoryService.getDeletedMedicineRecords(currentUser.branch_id);
-            deletedRecords.forEach(record => {
-                activities.push({
-                    id: `deleted_${record.medicine_deleted_id}`,
-                    type: 'remove',
-                    medicine_name: record.medicine_stock_in?.medicine?.medicine_name || 'Unknown Medicine',
-                    quantity: record.quantity,
-                    description: record.description || 'Medicine removed',
-                    timestamp: record.deleted_at,
-                    user_name: record.user?.name || 'Unknown User' // Now shows actual user who deleted
-                });
-            });
-
-            // Sort by timestamp (newest first)
-            activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-            console.log('Loaded activities:', activities);
-            setActivities(activities);
+            // Fetch history logs from the database
+            const logs = await HistoryLogService.getBranchHistoryLogs(currentUser.branch_id, 200);
+            setHistoryLogs(logs);
+            console.log('Loaded history logs:', logs.length);
 
         } catch (error) {
             console.error('Error loading history data:', error);
@@ -215,56 +88,37 @@ const History: React.FC = () => {
         setNotifications([]);
     };
 
-    // Filter and sort the activities (including history logs)
-    const getFilteredAndSortedActivities = () => {
-        // Combine legacy activities and new history logs
-        const combinedActivities: ActivityEntry[] = [...activities];
-
-        // Convert history logs to activity entries
-        historyLogs.forEach(log => {
-            const medicineName = getMedicineNameFromHistoryLog(log);
-            const quantity = getQuantityFromHistoryLog(log);
-
-            combinedActivities.push({
-                id: `history_log_${log.history_id}`,
-                type: log.action_type.toLowerCase() as 'add' | 'dispense' | 'remove' | 'reorder',
-                medicine_name: medicineName,
-                quantity: quantity,
-                description: log.description,
-                timestamp: log.logged_at,
-                user_name: log.user?.name || 'Unknown User'
-            });
-        });
-
-        let filtered = combinedActivities.filter(entry =>
-            entry.medicine_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            entry.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            entry.user_name.toLowerCase().includes(searchTerm.toLowerCase())
+    // Filter and sort the history logs
+    const getFilteredAndSortedHistoryLogs = () => {
+        let filtered = historyLogs.filter(log =>
+            log.medicine_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            log.activity.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
         if (sortBy === 'date') {
-            filtered = filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            filtered = filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         } else if (sortBy === 'medicine') {
-            filtered = filtered.sort((a, b) => a.medicine_name.localeCompare(b.medicine_name));
+            filtered = filtered.sort((a, b) => (a.medicine_name || '').localeCompare(b.medicine_name || ''));
         } else if (sortBy === 'quantity') {
             filtered = filtered.sort((a, b) => b.quantity - a.quantity);
         } else if (sortBy === 'activity') {
-            filtered = filtered.sort((a, b) => a.type.localeCompare(b.type));
+            filtered = filtered.sort((a, b) => a.activity.localeCompare(b.activity));
         }
 
         return filtered;
     };
 
     // Get activity icon and color
-    const getActivityIcon = (activityType: string) => {
-        switch (activityType) {
-            case 'dispense':
+    const getActivityIcon = (activity: string) => {
+        switch (activity) {
+            case 'dispensed':
                 return <Minus className="w-4 h-4 text-blue-600" />;
-            case 'remove':
+            case 'removed':
                 return <Trash2 className="w-4 h-4 text-red-600" />;
-            case 'reorder':
+            case 'restocked':
                 return <RefreshCcw className="w-4 h-4 text-orange-600" />;
-            case 'add':
+            case 'added':
                 return <Plus className="w-4 h-4 text-green-600" />;
             default:
                 return <Package className="w-4 h-4 text-gray-600" />;
@@ -272,15 +126,15 @@ const History: React.FC = () => {
     };
 
     // Get activity label
-    const getActivityLabel = (activityType: string) => {
-        switch (activityType) {
-            case 'dispense':
+    const getActivityLabel = (activity: string) => {
+        switch (activity) {
+            case 'dispensed':
                 return 'Dispensed';
-            case 'remove':
+            case 'removed':
                 return 'Removed';
-            case 'reorder':
+            case 'restocked':
                 return 'Restocked';
-            case 'add':
+            case 'added':
                 return 'Added';
             default:
                 return 'Unknown';
@@ -288,18 +142,18 @@ const History: React.FC = () => {
     };
 
     // Get activity color class
-    const getActivityColorClass = (activityType: string) => {
-        switch (activityType) {
-            case 'dispense':
-                return 'bg-blue-100 text-blue-800';
-            case 'remove':
-                return 'bg-red-100 text-red-800';
-            case 'reorder':
-                return 'bg-orange-100 text-orange-800';
-            case 'add':
-                return 'bg-green-100 text-green-800';
+    const getActivityColorClass = (activity: string) => {
+        switch (activity) {
+            case 'dispensed':
+                return 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300';
+            case 'removed':
+                return 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 border border-red-300';
+            case 'restocked':
+                return 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 border border-orange-300';
+            case 'added':
+                return 'bg-gradient-to-r from-green-100 to-green-200 text-green-800 border border-green-300';
             default:
-                return 'bg-gray-100 text-gray-800';
+                return 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-300';
         }
     };
 
@@ -335,7 +189,7 @@ const History: React.FC = () => {
                 setInventoryOpen={setInventoryOpen}
                 handleNavigation={handleNavigation}
                 handleLogout={handleLogout}
-                activeMenu="inventory-history" // <-- Highlight Inventory > History
+                activeMenu="inventory-history"
             />
 
             {/* Main Content */}
@@ -369,9 +223,9 @@ const History: React.FC = () => {
                                 <div>
                                     <h3 className="text-lg font-medium text-green-800">Added</h3>
                                     <p className="text-2xl font-bold text-green-900">
-                                        {historyLogs.filter(h => h.action_type === 'ADD').length}
+                                        {historyLogs.filter(h => h.activity === 'added').length}
                                     </p>
-                                    <p className="text-sm text-green-600">New medicines added to system</p>
+                                    <p className="text-sm text-green-600">New medicines added</p>
                                 </div>
                             </div>
                         </div>
@@ -382,8 +236,7 @@ const History: React.FC = () => {
                                 <div>
                                     <h3 className="text-lg font-medium text-orange-800">Restocked</h3>
                                     <p className="text-2xl font-bold text-orange-900">
-                                        {activities.filter(a => a.type === 'reorder').length + 
-                                         historyLogs.filter(h => h.action_type === 'REORDER').length}
+                                        {historyLogs.filter(h => h.activity === 'restocked').length}
                                     </p>
                                     <p className="text-sm text-orange-600">Medicine inventory restocked</p>
                                 </div>
@@ -396,8 +249,7 @@ const History: React.FC = () => {
                                 <div>
                                     <h3 className="text-lg font-medium text-blue-800">Dispensed</h3>
                                     <p className="text-2xl font-bold text-blue-900">
-                                        {activities.filter(a => a.type === 'dispense').length + 
-                                         historyLogs.filter(h => h.action_type === 'DISPENSE').length}
+                                        {historyLogs.filter(h => h.activity === 'dispensed').length}
                                     </p>
                                     <p className="text-sm text-blue-600">Medicines dispensed to patients</p>
                                 </div>
@@ -410,8 +262,7 @@ const History: React.FC = () => {
                                 <div>
                                     <h3 className="text-lg font-medium text-red-800">Removed</h3>
                                     <p className="text-2xl font-bold text-red-900">
-                                        {activities.filter(a => a.type === 'remove').length + 
-                                         historyLogs.filter(h => h.action_type === 'REMOVE').length}
+                                        {historyLogs.filter(h => h.activity === 'removed').length}
                                     </p>
                                     <p className="text-sm text-red-600">Medicines removed from inventory</p>
                                 </div>
@@ -423,7 +274,7 @@ const History: React.FC = () => {
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <h2 className="text-2xl font-normal text-black">Activity History</h2>
-                            <p className="text-gray-600 text-sm">Complete inventory activity log - reorders, dispensing, and removals</p>
+                            <p className="text-gray-600 text-sm">Complete inventory activity log from history_log database</p>
                         </div>
                         
                         <div className="flex items-center space-x-4">
@@ -480,7 +331,7 @@ const History: React.FC = () => {
                                                 <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider w-1/6">ACTIVITY</th>
                                                 <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider w-1/4">MEDICINE NAME</th>
                                                 <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider w-1/6">QUANTITY</th>
-                                                <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider w-1/3">DESCRIPTION</th>
+                                                <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider w-1/3 max-w-xs">DESCRIPTION</th>
                                             </tr>
                                         </thead>
                                     </table>
@@ -490,19 +341,19 @@ const History: React.FC = () => {
                                 <div className="flex-1 overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                                     <table className="min-w-full">
                                         <tbody className="bg-white divide-y divide-gray-200">
-                                            {getFilteredAndSortedActivities().map((entry: ActivityEntry, index: number) => (
-                                                <tr key={entry.id} className="hover:bg-gray-50 transition-colors duration-200">
+                                            {getFilteredAndSortedHistoryLogs().map((log: HistoryLog, index: number) => (
+                                                <tr key={log.history_id} className="hover:bg-gray-50 transition-colors duration-200">
                                                     <td className="px-6 py-4 text-sm text-gray-900 w-1/5">
                                                         <div>
                                                             <div className="font-medium">
-                                                                {new Date(entry.timestamp).toLocaleDateString('en-US', {
+                                                                {new Date(log.created_at).toLocaleDateString('en-US', {
                                                                     year: 'numeric',
                                                                     month: 'short',
                                                                     day: 'numeric'
                                                                 })}
                                                             </div>
                                                             <div className="text-xs text-gray-500">
-                                                                {new Date(entry.timestamp).toLocaleTimeString('en-US', {
+                                                                {new Date(log.created_at).toLocaleTimeString('en-US', {
                                                                     hour: '2-digit',
                                                                     minute: '2-digit'
                                                                 })}
@@ -510,27 +361,30 @@ const History: React.FC = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-sm w-1/6">
-                                                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getActivityColorClass(entry.type)}`}>
-                                                            {getActivityIcon(entry.type)}
-                                                            <span className="ml-2">{getActivityLabel(entry.type)}</span>
+                                                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${getActivityColorClass(log.activity)}`}>
+                                                            {getActivityIcon(log.activity)}
+                                                            <span className="ml-2 font-medium">{getActivityLabel(log.activity)}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-900 w-1/4">
-                                                        <div className="truncate" title={entry.medicine_name}>
-                                                            {entry.medicine_name}
+                                                        <div className="truncate" title={log.medicine_name || 'Unknown Medicine'}>
+                                                            {log.medicine_name || 'Unknown Medicine'}
                                                         </div>
+                                                        {log.medicine_category && (
+                                                            <div className="text-xs text-gray-500">{log.medicine_category}</div>
+                                                        )}
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-gray-900 w-1/6">
-                                                        <span className="font-medium">{entry.quantity}</span> units
+                                                        <span className="font-medium">{log.quantity}</span> units
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm text-gray-900 w-1/3">
-                                                        <div className="truncate" title={entry.description}>
-                                                            {entry.description}
+                                                    <td className="px-6 py-4 text-sm text-gray-900 w-1/3 max-w-xs">
+                                                        <div className="truncate max-w-xs" title={log.description}>
+                                                            {log.description}
                                                         </div>
                                                     </td>
                                                 </tr>
                                             ))}
-                                            {getFilteredAndSortedActivities().length === 0 && (
+                                            {getFilteredAndSortedHistoryLogs().length === 0 && (
                                                 <tr>
                                                     <td colSpan={5} className="px-6 py-12 text-center text-gray-500 text-sm">
                                                         <div className="flex flex-col items-center space-y-2">
@@ -544,9 +398,9 @@ const History: React.FC = () => {
                                     </table>
                                 </div>
                                 
-                                {/* Optional: Scroll indicator */}
+                                {/* Optional: Record count indicator */}
                                 <div className="flex-shrink-0 px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 text-center">
-                                    Showing {getFilteredAndSortedActivities().length} of {activities.length} activities
+                                    Showing {getFilteredAndSortedHistoryLogs().length} of {historyLogs.length} activities
                                 </div>
                             </div>
                         </div>

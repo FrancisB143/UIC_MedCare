@@ -91,23 +91,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                 e.preventDefault();
                 if (validateForm()) {
                         onAddMedicine(formData);
-                        Swal.fire({
-                                position: 'center',
-                                icon: 'success',
-                                title: 'Medicine Successfully Requested!',
-                                html: `
-                                    <div style="text-align:left;margin-top:1em;">
-                                        <div><b>Medicine Name:</b> ${formData.medicineName}</div>
-                                        <div><b>Category:</b> ${formData.category}</div>
-                                        <div><b>Date Received:</b> ${formData.dateReceived}</div>
-                                        <div><b>Expiration Date:</b> ${formData.expirationDate}</div>
-                                        <div><b>Quantity:</b> ${formData.quantity}</div>
-                                    </div>
-                                `,
-                                showConfirmButton: false,
-                                timer: 2000,
-                        });
-                        // No view state change
+                        // Success view removed as requested
                 }
         };
 

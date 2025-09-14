@@ -53,8 +53,17 @@ const Dashboard: React.FC = () => {
     const { date, time } = dateTime;
 
     const handleNavigation = (path: string): void => {
-        // Ensure smooth navigation without authentication interference
-        router.visit(path);
+        console.log('🚀 Navigation requested to:', path);
+        console.log('🔐 User logged in?', UserService.isLoggedIn());
+        console.log('👤 Current user:', UserService.getCurrentUser());
+        
+        try {
+            router.visit(path);
+            console.log('✅ Navigation request sent successfully');
+        } catch (error) {
+            console.error('❌ Navigation failed:', error);
+            alert('Navigation failed: ' + error);
+        }
     };
 
     const handleLogout = (): void => {
@@ -109,6 +118,99 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     <h1 className="text-5xl font-bold text-black mb-8">Dashboard</h1>
+
+                    {/* Navigation Test Section */}
+                    <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-6 mb-8">
+                        <h2 className="text-xl font-bold text-yellow-800 mb-4">🧪 Navigation Test</h2>
+                        <p className="text-yellow-700 mb-4">Test sidebar navigation by clicking these buttons. Check the console (F12) for debug info.</p>
+                        
+                        {/* Simple link test */}
+                        <div className="mb-4 p-4 bg-white rounded border">
+                            <h3 className="font-bold mb-2">🔗 Direct Link Test:</h3>
+                            <a href="/search/student" className="text-blue-500 underline hover:text-blue-700">
+                                Go to Student Search (Direct Link)
+                            </a>
+                        </div>
+
+                        {/* Router test */}
+                        <div className="mb-4 p-4 bg-white rounded border">
+                            <h3 className="font-bold mb-2">⚡ Inertia Router Test:</h3>
+                            <button 
+                                onClick={() => {
+                                    console.log('🚀 Testing simple router.visit');
+                                    try {
+                                        router.visit('/search/student');
+                                        console.log('✅ router.visit called successfully');
+                                    } catch (error) {
+                                        console.error('❌ router.visit failed:', error);
+                                        alert('Router failed: ' + error);
+                                    }
+                                }}
+                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                            >
+                                Go to Student Search (Router)
+                            </button>
+                        </div>
+
+                        {/* Window location test */}
+                        <div className="mb-4 p-4 bg-white rounded border">
+                            <h3 className="font-bold mb-2">🌐 Window Location Test:</h3>
+                            <button 
+                                onClick={() => {
+                                    console.log('🚀 Testing window.location');
+                                    window.location.href = '/search/student';
+                                }}
+                                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                            >
+                                Go to Student Search (Window Location)
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <button 
+                                onClick={() => handleNavigation('/test')}
+                                className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+                            >
+                                🧪 Simple Test Page
+                            </button>
+                            <button 
+                                onClick={() => handleNavigation('/search/student')}
+                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                            >
+                                🎓 Student Search
+                            </button>
+                            <button 
+                                onClick={() => handleNavigation('/search/employee')}
+                                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                            >
+                                💼 Employee Search
+                            </button>
+                            <button 
+                                onClick={() => handleNavigation('/search/community')}
+                                className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+                            >
+                                👥 Community Search
+                            </button>
+                            <button 
+                                onClick={() => handleNavigation('/inventory/dashboard')}
+                                className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
+                            >
+                                📊 Inventory Dashboard
+                            </button>
+                            <button 
+                                onClick={() => handleNavigation('/inventory/stocks')}
+                                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                            >
+                                📦 Inventory Stocks
+                            </button>
+                            <button 
+                                onClick={() => handleNavigation('/Reports')}
+                                className="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600"
+                            >
+                                📋 Reports
+                            </button>
+                        </div>
+                    </div>
 
                     <section className="mb-10">
                         <h2 className="text-2xl font-normal text-black mb-4">Current Consultations:</h2>

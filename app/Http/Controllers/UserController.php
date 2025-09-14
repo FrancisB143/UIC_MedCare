@@ -280,4 +280,782 @@ class UserController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get all branches from MSSQL database
+     */
+    public function getAllBranches()
+    {
+        try {
+            Log::info("Fetching all branches from MSSQL");
+
+            $branches = DB::table('branches')
+                ->select('branch_id', 'branch_name')
+                ->orderBy('branch_name')
+                ->get();
+
+            Log::info("Found " . count($branches) . " branches");
+
+            return response()->json($branches->toArray());
+
+        } catch (\Exception $e) {
+            Log::error("Error in getAllBranches: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get branch by ID from MSSQL database
+     */
+    public function getBranchById($id)
+    {
+        try {
+            Log::info("Fetching branch with ID: {$id}");
+
+            $branch = DB::table('branches')
+                ->select('branch_id', 'branch_name')
+                ->where('branch_id', $id)
+                ->first();
+
+            if (!$branch) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Branch not found'
+                ], 404);
+            }
+
+            return response()->json($branch);
+
+        } catch (\Exception $e) {
+            Log::error("Error in getBranchById: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get other branches (excluding user's branch) from MSSQL database
+     */
+    public function getOtherBranches($userBranchId)
+    {
+        try {
+            Log::info("Fetching branches excluding branch ID: {$userBranchId}");
+
+            $branches = DB::table('branches')
+                ->select('branch_id', 'branch_name')
+                ->where('branch_id', '!=', $userBranchId)
+                ->orderBy('branch_name')
+                ->get();
+
+            Log::info("Found " . count($branches) . " other branches");
+
+            return response()->json($branches->toArray());
+
+        } catch (\Exception $e) {
+            Log::error("Error in getOtherBranches: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get branch inventory with available stock calculations
+     */
+    public function getBranchInventory($branchId)
+    {
+        try {
+            Log::info("Fetching inventory for branch ID: {$branchId}");
+
+            // Get all stock in records for this branch
+            $stockInData = DB::table('medicine_stock_in as msi')
+                ->leftJoin('medicines as m', 'msi.medicine_id', '=', 'm.medicine_id')
+                ->select(
+                    'msi.medicine_stock_in_id',
+                    'msi.medicine_id',
+                    'msi.quantity',
+                    'msi.date_received',
+                    'msi.expiration_date',
+                    'm.medicine_name',
+                    'm.medicine_category'
+                )
+                ->where('msi.branch_id', $branchId)
+                ->orderBy('msi.medicine_id')
+                ->orderBy('msi.expiration_date')
+                ->get();
+
+            Log::info("Stock in data fetched: " . count($stockInData) . " records");
+
+            // Get all stock out records for this branch
+            $stockOutData = DB::table('medicine_stock_out')
+                ->select('medicine_stock_in_id', 'quantity_dispensed')
+                ->where('branch_id', $branchId)
+                ->get();
+
+            Log::info("Stock out data fetched: " . count($stockOutData) . " records");
+
+            // Get all deleted medicine records for this branch
+            $deletedData = DB::table('medicine_deleted')
+                ->select('medicine_stock_in_id', 'quantity')
+                ->where('branch_id', $branchId)
+                ->get();
+
+            Log::info("Deleted data fetched: " . count($deletedData) . " records");
+
+            // Create maps for dispensed and deleted quantities
+            $dispensedMap = [];
+            foreach ($stockOutData as $record) {
+                $stockInId = $record->medicine_stock_in_id;
+                if (isset($dispensedMap[$stockInId])) {
+                    $dispensedMap[$stockInId] += $record->quantity_dispensed;
+                } else {
+                    $dispensedMap[$stockInId] = $record->quantity_dispensed;
+                }
+            }
+
+            $deletedMap = [];
+            foreach ($deletedData as $record) {
+                $stockInId = $record->medicine_stock_in_id;
+                if (isset($deletedMap[$stockInId])) {
+                    $deletedMap[$stockInId] += $record->quantity;
+                } else {
+                    $deletedMap[$stockInId] = $record->quantity;
+                }
+            }
+
+            // Calculate available quantities and build result
+            $result = [];
+            foreach ($stockInData as $record) {
+                $stockInId = $record->medicine_stock_in_id;
+                $totalDispensed = $dispensedMap[$stockInId] ?? 0;
+                $totalDeleted = $deletedMap[$stockInId] ?? 0;
+                $availableQuantity = max(0, $record->quantity - $totalDispensed - $totalDeleted);
+
+                // Only include records with available quantity > 0
+                if ($availableQuantity > 0) {
+                    $result[] = [
+                        'medicine_id' => $record->medicine_id,
+                        'quantity' => $availableQuantity,
+                        'date_received' => $record->date_received,
+                        'expiration_date' => $record->expiration_date,
+                        'medicine_stock_in_id' => $stockInId,
+                        'medicine' => [
+                            'medicine_id' => $record->medicine_id,
+                            'medicine_name' => $record->medicine_name,
+                            'medicine_category' => $record->medicine_category
+                        ]
+                    ];
+                }
+            }
+
+            Log::info("Final result: " . count($result) . " available stock records");
+
+            return response()->json($result);
+
+        } catch (\Exception $e) {
+            Log::error("Error in getBranchInventory: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all medicines from MSSQL database
+     */
+    public function getAllMedicines()
+    {
+        try {
+            Log::info("Fetching all medicines from MSSQL");
+
+            $medicines = DB::table('medicines')
+                ->select('medicine_id', 'medicine_name', 'medicine_category')
+                ->orderBy('medicine_name')
+                ->get();
+
+            Log::info("Found " . count($medicines) . " medicines");
+
+            return response()->json($medicines->toArray());
+
+        } catch (\Exception $e) {
+            Log::error("Error in getAllMedicines: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Create a new medicine or get existing one
+     */
+    public function createMedicine(Request $request)
+    {
+        try {
+            $request->validate([
+                'medicine_name' => 'required|string|max:255',
+                'medicine_category' => 'required|string|max:255'
+            ]);
+
+            $medicineName = $request->input('medicine_name');
+            $medicineCategory = $request->input('medicine_category');
+
+            Log::info("Creating/getting medicine: {$medicineName}, Category: {$medicineCategory}");
+
+            // Check if medicine already exists
+            $existingMedicine = DB::table('medicines')
+                ->select('medicine_id', 'medicine_name', 'medicine_category')
+                ->where('medicine_name', $medicineName)
+                ->where('medicine_category', $medicineCategory)
+                ->first();
+
+            if ($existingMedicine) {
+                Log::info("Medicine already exists: " . json_encode($existingMedicine));
+                return response()->json($existingMedicine);
+            }
+
+            // Create new medicine
+            $medicineId = DB::table('medicines')->insertGetId([
+                'medicine_name' => $medicineName,
+                'medicine_category' => $medicineCategory
+            ]);
+
+            // Get the created medicine
+            $newMedicine = DB::table('medicines')
+                ->select('medicine_id', 'medicine_name', 'medicine_category')
+                ->where('medicine_id', $medicineId)
+                ->first();
+
+            Log::info("Successfully created new medicine: " . json_encode($newMedicine));
+
+            return response()->json($newMedicine, 201);
+
+        } catch (\Exception $e) {
+            Log::error("Error in createMedicine: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Add medicine stock in
+     */
+    public function addMedicineStockIn(Request $request)
+    {
+        try {
+            $request->validate([
+                'medicine_id' => 'required|integer',
+                'branch_id' => 'required|integer',
+                'user_id' => 'required|integer',
+                'quantity' => 'required|integer|min:1',
+                'date_received' => 'required|date',
+                'expiration_date' => 'required|date'
+            ]);
+
+            $data = [
+                'medicine_id' => $request->input('medicine_id'),
+                'branch_id' => $request->input('branch_id'),
+                'user_id' => $request->input('user_id'),
+                'quantity' => $request->input('quantity'),
+                'date_received' => $request->input('date_received'),
+                'expiration_date' => $request->input('expiration_date')
+            ];
+
+            Log::info("Adding medicine stock in: " . json_encode($data));
+
+            $stockInId = DB::table('medicine_stock_in')->insertGetId($data);
+
+            // Get the created record with medicine details
+            $stockRecord = DB::table('medicine_stock_in as msi')
+                ->leftJoin('medicines as m', 'msi.medicine_id', '=', 'm.medicine_id')
+                ->leftJoin('branches as b', 'msi.branch_id', '=', 'b.branch_id')
+                ->leftJoin('users as u', 'msi.user_id', '=', 'u.user_id')
+                ->select(
+                    'msi.*',
+                    'm.medicine_name',
+                    'm.medicine_category',
+                    'b.branch_name',
+                    'u.name as user_name'
+                )
+                ->where('msi.medicine_stock_in_id', $stockInId)
+                ->first();
+
+            Log::info("Successfully added medicine stock in: " . json_encode($stockRecord));
+
+            return response()->json($stockRecord, 201);
+
+        } catch (\Exception $e) {
+            Log::error("Error in addMedicineStockIn: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get available stock records for a medicine (FIFO order)
+     */
+    public function getAvailableStockRecords($medicineId, $branchId)
+    {
+        try {
+            Log::info("Getting available stock records for medicine {$medicineId} in branch {$branchId}");
+
+            // Get all stock in records for this medicine and branch, ordered by date (FIFO)
+            $stockInData = DB::table('medicine_stock_in')
+                ->select('medicine_stock_in_id', 'quantity', 'date_received')
+                ->where('medicine_id', $medicineId)
+                ->where('branch_id', $branchId)
+                ->orderBy('date_received', 'asc') // FIFO - oldest first
+                ->get();
+
+            if ($stockInData->isEmpty()) {
+                return response()->json([]);
+            }
+
+            $availableRecords = [];
+
+            foreach ($stockInData as $stockIn) {
+                // Get total dispensed for this stock in record
+                $totalDispensed = DB::table('medicine_stock_out')
+                    ->where('medicine_stock_in_id', $stockIn->medicine_stock_in_id)
+                    ->sum('quantity_dispensed') ?: 0;
+
+                // Get total deleted for this stock in record
+                $totalDeleted = DB::table('medicine_deleted')
+                    ->where('medicine_stock_in_id', $stockIn->medicine_stock_in_id)
+                    ->sum('quantity') ?: 0;
+
+                $available = $stockIn->quantity - $totalDispensed - $totalDeleted;
+
+                if ($available > 0) {
+                    $availableRecords[] = [
+                        'stockInId' => $stockIn->medicine_stock_in_id,
+                        'availableQuantity' => $available
+                    ];
+                }
+            }
+
+            Log::info("Found " . count($availableRecords) . " available stock records");
+            return response()->json($availableRecords);
+
+        } catch (\Exception $e) {
+            Log::error("Error in getAvailableStockRecords: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Dispense medicine (create stock out record)
+     */
+    /**
+     * Dispense medicine with clean implementation (no reason field)
+     */
+    public function dispenseMedicineV2(Request $request)
+    {
+        try {
+            $request->validate([
+                'medicine_stock_in_id' => 'required|integer',
+                'quantity_dispensed' => 'required|integer|min:1',
+                'user_id' => 'required|integer',
+                'branch_id' => 'required|integer'
+            ]);
+
+            $medicineStockInId = $request->input('medicine_stock_in_id');
+            $quantityDispensed = $request->input('quantity_dispensed');
+            $userId = $request->input('user_id');
+            $branchId = $request->input('branch_id');
+
+            Log::info("V2 Dispensing medicine: stock_in_id={$medicineStockInId}, quantity={$quantityDispensed}");
+            Log::info("V2 Request data: " . json_encode($request->all()));
+
+            // Check if the stock in record exists
+            $stockInRecord = DB::table('medicine_stock_in')
+                ->where('medicine_stock_in_id', $medicineStockInId)
+                ->first();
+
+            if (!$stockInRecord) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stock in record not found'
+                ], 404);
+            }
+
+            // Check available quantity
+            $totalDispensed = DB::table('medicine_stock_out')
+                ->where('medicine_stock_in_id', $medicineStockInId)
+                ->sum('quantity_dispensed') ?: 0;
+
+            $totalDeleted = DB::table('medicine_deleted')
+                ->where('medicine_stock_in_id', $medicineStockInId)
+                ->sum('quantity') ?: 0;
+
+            $availableQuantity = $stockInRecord->quantity - $totalDispensed - $totalDeleted;
+
+            if ($availableQuantity < $quantityDispensed) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Insufficient stock. Available: {$availableQuantity}, Requested: {$quantityDispensed}"
+                ], 400);
+            }
+
+            // Create stock out record with explicit columns only
+            $insertData = [
+                'medicine_stock_in_id' => $medicineStockInId,
+                'quantity_dispensed' => $quantityDispensed,
+                'user_id' => $userId,
+                'branch_id' => $branchId
+            ];
+            
+            Log::info("V2 About to insert into medicine_stock_out: " . json_encode($insertData));
+            
+            $stockOutId = DB::table('medicine_stock_out')->insertGetId($insertData);
+
+            // Get the created record with related data
+            $stockOutRecord = DB::table('medicine_stock_out as mso')
+                ->leftJoin('medicine_stock_in as msi', 'mso.medicine_stock_in_id', '=', 'msi.medicine_stock_in_id')
+                ->leftJoin('medicines as m', 'msi.medicine_id', '=', 'm.medicine_id')
+                ->leftJoin('branches as b', 'mso.branch_id', '=', 'b.branch_id')
+                ->leftJoin('users as u', 'mso.user_id', '=', 'u.user_id')
+                ->select(
+                    'mso.*',
+                    'm.medicine_name',
+                    'm.medicine_category',
+                    'b.branch_name',
+                    'u.name as user_name'
+                )
+                ->where('mso.medicine_stock_out_id', $stockOutId)
+                ->first();
+
+            Log::info("V2 Successfully dispensed medicine: " . json_encode($stockOutRecord));
+
+            return response()->json([
+                'success' => true,
+                'data' => $stockOutRecord
+            ], 201);
+
+        } catch (\Exception $e) {
+            Log::error("Error in dispenseMedicineV2: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function dispenseMedicine(Request $request)
+    {
+        try {
+            $request->validate([
+                'medicine_stock_in_id' => 'required|integer',
+                'quantity_dispensed' => 'required|integer|min:1',
+                'user_id' => 'required|integer',
+                'branch_id' => 'required|integer'
+            ]);
+
+            $medicineStockInId = $request->input('medicine_stock_in_id');
+            $quantityDispensed = $request->input('quantity_dispensed');
+            $userId = $request->input('user_id');
+            $branchId = $request->input('branch_id');
+
+            Log::info("Dispensing medicine: stock_in_id={$medicineStockInId}, quantity={$quantityDispensed}");
+            Log::info("Request data: " . json_encode($request->all()));
+            Log::info("Validated data: medicine_stock_in_id={$medicineStockInId}, quantity_dispensed={$quantityDispensed}, user_id={$userId}, branch_id={$branchId}");
+
+            // Check if the stock in record exists
+            $stockInRecord = DB::table('medicine_stock_in')
+                ->where('medicine_stock_in_id', $medicineStockInId)
+                ->first();
+
+            if (!$stockInRecord) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stock in record not found'
+                ], 404);
+            }
+
+            // Check available quantity
+            $totalDispensed = DB::table('medicine_stock_out')
+                ->where('medicine_stock_in_id', $medicineStockInId)
+                ->sum('quantity_dispensed') ?: 0;
+
+            $totalDeleted = DB::table('medicine_deleted')
+                ->where('medicine_stock_in_id', $medicineStockInId)
+                ->sum('quantity') ?: 0;
+
+            $availableQuantity = $stockInRecord->quantity - $totalDispensed - $totalDeleted;
+
+            if ($availableQuantity < $quantityDispensed) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Insufficient stock. Available: {$availableQuantity}, Requested: {$quantityDispensed}"
+                ], 400);
+            }
+
+            // Create stock out record
+            $insertData = [
+                'medicine_stock_in_id' => $medicineStockInId,
+                'quantity_dispensed' => $quantityDispensed,
+                'user_id' => $userId,
+                'branch_id' => $branchId
+                // timestamp_dispensed will be set automatically by DEFAULT GETDATE()
+            ];
+            
+            Log::info("About to insert into medicine_stock_out: " . json_encode($insertData));
+            
+            $stockOutId = DB::table('medicine_stock_out')->insertGetId($insertData);
+
+            // Get the created record with related data
+            $stockOutRecord = DB::table('medicine_stock_out as mso')
+                ->leftJoin('medicine_stock_in as msi', 'mso.medicine_stock_in_id', '=', 'msi.medicine_stock_in_id')
+                ->leftJoin('medicines as m', 'msi.medicine_id', '=', 'm.medicine_id')
+                ->leftJoin('branches as b', 'mso.branch_id', '=', 'b.branch_id')
+                ->leftJoin('users as u', 'mso.user_id', '=', 'u.user_id')
+                ->select(
+                    'mso.*',
+                    'm.medicine_name',
+                    'm.medicine_category',
+                    'b.branch_name',
+                    'u.name as user_name'
+                )
+                ->where('mso.medicine_stock_out_id', $stockOutId)
+                ->first();
+
+            Log::info("Successfully dispensed medicine: " . json_encode($stockOutRecord));
+
+            return response()->json($stockOutRecord, 201);
+
+        } catch (\Exception $e) {
+            Log::error("Error in dispenseMedicine: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete medicine stock and record in medicine_deleted table
+     */
+    public function deleteMedicine(Request $request)
+    {
+        try {
+            $validatedData = $request->validate([
+                'medicine_stock_in_id' => 'required|integer',
+                'quantity' => 'required|integer|min:1',
+                'description' => 'required|string|min:10',
+                'branch_id' => 'required|integer'
+            ]);
+
+            Log::info("Deleting medicine with data: " . json_encode($validatedData));
+
+            // Start transaction
+            DB::beginTransaction();
+
+            // First verify the stock exists and has enough quantity
+            $stockRecord = DB::table('medicine_stock_in')
+                ->where('medicine_stock_in_id', $validatedData['medicine_stock_in_id'])
+                ->where('branch_id', $validatedData['branch_id'])
+                ->first();
+
+            if (!$stockRecord) {
+                Log::error("Stock record not found for medicine_stock_in_id: " . $validatedData['medicine_stock_in_id']);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Medicine stock record not found'
+                ], 404);
+            }
+
+            // Check if there's enough quantity to delete
+            if ($stockRecord->quantity < $validatedData['quantity']) {
+                Log::error("Insufficient quantity. Available: " . $stockRecord->quantity . ", Requested: " . $validatedData['quantity']);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient quantity available for deletion'
+                ], 400);
+            }
+
+            // Insert record into medicine_deleted table
+            $deletedId = DB::table('medicine_deleted')->insertGetId([
+                'medicine_stock_in_id' => $validatedData['medicine_stock_in_id'],
+                'quantity' => $validatedData['quantity'],
+                'description' => $validatedData['description'],
+                'branch_id' => $validatedData['branch_id'],
+                'deleted_at' => now()
+            ]);
+
+            // Update the medicine_stock_in quantity (reduce by deleted amount)
+            $newQuantity = $stockRecord->quantity - $validatedData['quantity'];
+            
+            if ($newQuantity == 0) {
+                // If all quantity is deleted, we might want to keep the record but mark it as zero
+                // or delete it entirely based on business logic
+                DB::table('medicine_stock_in')
+                    ->where('medicine_stock_in_id', $validatedData['medicine_stock_in_id'])
+                    ->update(['quantity' => 0]);
+            } else {
+                DB::table('medicine_stock_in')
+                    ->where('medicine_stock_in_id', $validatedData['medicine_stock_in_id'])
+                    ->update(['quantity' => $newQuantity]);
+            }
+
+            // Commit transaction
+            DB::commit();
+
+            Log::info("Medicine deleted successfully. Deleted record ID: " . $deletedId);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Medicine deleted successfully',
+                'data' => [
+                    'medicine_deleted_id' => $deletedId,
+                    'remaining_quantity' => $newQuantity,
+                    'deleted_quantity' => $validatedData['quantity']
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            Log::error("Validation error in deleteMedicine: " . json_encode($e->errors()));
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Error in deleteMedicine: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get history log data from MSSQL database
+     */
+    public function getHistoryLog(Request $request)
+    {
+        try {
+            $branchId = $request->input('branch_id');
+            $limit = $request->input('limit', 100);
+
+            Log::info("Fetching history log for branch ID: {$branchId}, limit: {$limit}");
+
+            $historyLogs = DB::table('history_log as hl')
+                ->leftJoin('users as u', 'hl.user_id', '=', 'u.user_id')
+                ->leftJoin('medicines as m', 'hl.medicine_id', '=', 'm.medicine_id')
+                ->leftJoin('branches as b', 'hl.branch_id', '=', 'b.branch_id')
+                ->select(
+                    'hl.history_id',
+                    'hl.medicine_id',
+                    'hl.branch_id',
+                    'hl.user_id',
+                    'hl.activity',
+                    'hl.quantity',
+                    'hl.description',
+                    'hl.created_at',
+                    'u.name as user_name',
+                    'u.email as user_email',
+                    'm.medicine_name',
+                    'm.medicine_category',
+                    'b.branch_name'
+                )
+                ->where('hl.branch_id', $branchId)
+                ->orderBy('hl.created_at', 'desc')
+                ->limit($limit)
+                ->get();
+
+            Log::info("Found " . count($historyLogs) . " history log records");
+
+            return response()->json([
+                'success' => true,
+                'data' => $historyLogs
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Error in getHistoryLog: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Add entry to history log
+     */
+    public function addHistoryLog(Request $request)
+    {
+        try {
+            $validatedData = $request->validate([
+                'medicine_id' => 'required|integer',
+                'branch_id' => 'required|integer',
+                'user_id' => 'required|integer',
+                'activity' => 'required|string|in:add,reorder,dispense,remove',
+                'quantity' => 'required|integer|min:1',
+                'description' => 'required|string'
+            ]);
+
+            Log::info("Adding history log entry: " . json_encode($validatedData));
+
+            $historyId = DB::table('history_log')->insertGetId([
+                'medicine_id' => $validatedData['medicine_id'],
+                'branch_id' => $validatedData['branch_id'],
+                'user_id' => $validatedData['user_id'],
+                'activity' => $validatedData['activity'],
+                'quantity' => $validatedData['quantity'],
+                'description' => $validatedData['description'],
+                'created_at' => now()
+            ]);
+
+            // Get the created record with related data
+            $historyRecord = DB::table('history_log as hl')
+                ->leftJoin('users as u', 'hl.user_id', '=', 'u.user_id')
+                ->leftJoin('medicines as m', 'hl.medicine_id', '=', 'm.medicine_id')
+                ->leftJoin('branches as b', 'hl.branch_id', '=', 'b.branch_id')
+                ->select(
+                    'hl.*',
+                    'u.name as user_name',
+                    'm.medicine_name',
+                    'b.branch_name'
+                )
+                ->where('hl.history_id', $historyId)
+                ->first();
+
+            Log::info("Successfully added history log entry: " . json_encode($historyRecord));
+
+            return response()->json([
+                'success' => true,
+                'data' => $historyRecord
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error("Validation error in addHistoryLog: " . json_encode($e->errors()));
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error("Error in addHistoryLog: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

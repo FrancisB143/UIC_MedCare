@@ -37,18 +37,52 @@ const StocksPage: React.FC = () => {
                 return;
             }
 
-            // Get user's branch
-            const userBranch = await BranchInventoryService.getUserBranchInfo(currentUser.user_id);
-            setMyBranch(userBranch);
+            // Set user's branch from current user data (branch_id and branch_name are already available)
+            if (currentUser.branch_id && currentUser.branch_name) {
+                const userBranch = {
+                    branch_id: currentUser.branch_id,
+                    branch_name: currentUser.branch_name,
+                    address: undefined, // Will be populated by API if available
+                    location: undefined // Keep for backward compatibility
+                };
+                setMyBranch(userBranch);
 
-            // Get other branches
-            const allBranches = await BranchInventoryService.getAllBranches();
-            const otherBranchesData = allBranches.filter(branch => 
-                userBranch ? branch.branch_id !== userBranch.branch_id : true
-            );
-            setOtherBranches(otherBranchesData);
+                // Get other branches excluding user's branch using MSSQL API
+                const otherBranchesData = await BranchInventoryService.getOtherBranches(currentUser.branch_id);
+                setOtherBranches(otherBranchesData);
+                
+                console.log('User branch:', userBranch);
+                console.log('Other branches:', otherBranchesData);
+            } else {
+                console.error('User does not have branch information');
+                // Fallback - try to get branch info from API
+                const userBranch = await BranchInventoryService.getUserBranchInfo(currentUser.user_id);
+                if (userBranch) {
+                    setMyBranch(userBranch);
+                    const otherBranchesData = await BranchInventoryService.getOtherBranches(userBranch.branch_id);
+                    setOtherBranches(otherBranchesData);
+                } else {
+                    // Last resort fallback
+                    const fallbackBranch = {
+                        branch_id: 1,
+                        branch_name: 'Unassigned Branch',
+                        address: 'No address available'
+                    };
+                    setMyBranch(fallbackBranch);
+                    setOtherBranches([]);
+                }
+            }
+            
         } catch (error) {
             console.error('Error loading branches:', error);
+            // Fallback to ensure page doesn't break
+            const fallbackBranch = {
+                branch_id: 1,
+                branch_name: 'System Branch',
+                address: 'Error loading branch data'
+            };
+            setMyBranch(fallbackBranch);
+            setOtherBranches([]);
         } finally {
             setLoading(false);
         }
@@ -135,6 +169,9 @@ const StocksPage: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <h4 className="text-xl font-semibold text-gray-800">{myBranch.branch_name}</h4>
+                                            {(myBranch.address || myBranch.location) && (
+                                                <p className="text-sm text-gray-500 mt-1">{myBranch.address || myBranch.location}</p>
+                                            )}
                                             <p className="text-sm text-[#A3386C] mt-2 font-medium">• Manage Inventory • Add/Remove Medicines</p>
                                         </div>
                                         <div className="text-[#A3386C]">
@@ -158,6 +195,9 @@ const StocksPage: React.FC = () => {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h4 className="text-lg font-semibold text-gray-800">{branch.branch_name}</h4>
+                                                {(branch.address || branch.location) && (
+                                                    <p className="text-sm text-gray-400 mt-1">{branch.address || branch.location}</p>
+                                                )}
                                                 <p className="text-sm text-gray-500 mt-2">• View Only • Request Medicines</p>
                                             </div>
                                             <div className="text-gray-400">

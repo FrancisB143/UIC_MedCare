@@ -73,20 +73,7 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
     });
     setIsOpen(false);
     const med = medicines.find(m => m.id === selectedMedicineId);
-    Swal.fire({
-      position: 'center',
-      icon: 'success',
-      title: 'Medicine Successfully Requested!',
-      html: `
-        <div style="text-align:left;margin-top:1em;">
-          <div><b>Medicine:</b> ${med ? med.name : ''}</div>
-          <div><b>Expiration Date:</b> ${selectedExpiration}</div>
-          <div><b>Quantity:</b> ${quantity}</div>
-        </div>
-      `,
-      showConfirmButton: false,
-      timer: 2000,
-    });
+    // Success view removed as requested
   };
 
   const handleClose = () => setIsOpen(false);

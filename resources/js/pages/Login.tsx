@@ -37,7 +37,7 @@ export default function Login() {
           body: JSON.stringify({ 
             token: credentialResponse.credential,
             userData: userData
-          }),
+          }), 
         });
       } catch (sessionError) {
         console.warn("Laravel session creation failed:", sessionError);

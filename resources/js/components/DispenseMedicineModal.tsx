@@ -1,6 +1,7 @@
 // src/components/DispenseMedicineModal.tsx
 
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 
 interface DispenseMedicineModalProps {
     isOpen: boolean;
@@ -32,12 +33,22 @@ const DispenseMedicineModal: React.FC<DispenseMedicineModalProps> = ({
         const numQuantity = parseInt(quantity, 10);
 
         if (isNaN(numQuantity) || numQuantity <= 0) {
-            alert('Please enter a valid positive number for the quantity.');
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid Quantity',
+                text: 'Please enter a valid positive number for the quantity.',
+                confirmButtonText: 'OK'
+            });
             return;
         }
 
         if (numQuantity > currentStock) {
-            alert(`Quantity cannot exceed the current stock of ${currentStock}.`);
+            Swal.fire({
+                icon: 'error',
+                title: 'Quantity Exceeds Stock',
+                text: `Quantity cannot exceed the current stock of ${currentStock}.`,
+                confirmButtonText: 'OK'
+            });
             return;
         }
 

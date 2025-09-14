@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 
 interface RemovalReasonModalProps {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
-    onSubmit: (reason: string) => void;
+    onSubmit: (description: string) => void;
     currentStock?: number;
     medicineName?: string;
     medicineCategory?: string;
@@ -18,23 +19,38 @@ const RemovalReasonModal: React.FC<RemovalReasonModalProps> = ({
     medicineCategory = 'No Category'
 }) => {
     
-    const [reason, setReason] = useState('');
+    const [description, setDescription] = useState('');
 
     // Clear the form when the modal opens
     useEffect(() => {
         if (isOpen) {
-            setReason('');
+            setDescription('');
         }
     }, [isOpen]);
 
     const handleSubmit = () => {
-        // Basic validation to ensure reason is provided
-        if (!reason.trim()) {
-            alert('Please provide a reason for removal.');
+        // Validate description length and content
+        if (!description.trim()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Description Required',
+                text: 'Please provide a detailed description for the removal.',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+
+        if (description.trim().length < 10) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Description Too Short',
+                text: 'Please provide a more detailed description (at least 10 characters).',
+                confirmButtonText: 'OK'
+            });
             return;
         }
         
-        onSubmit(reason);
+        onSubmit(description.trim());
         setIsOpen(false); // Close modal on successful submission
     };
 
@@ -109,17 +125,20 @@ const RemovalReasonModal: React.FC<RemovalReasonModalProps> = ({
                                 </div>
                             </div>
 
-                            {/* Reason Textarea */}
+                            {/* Description Textarea */}
                             <div className="mb-6">
                                 <label className="block text-sm font-semibold text-gray-700 mb-2 text-left">
-                                    Reason for Removal:
+                                    Detailed Description for Removal:
                                 </label>
                                 <textarea
-                                    value={reason}
-                                    onChange={(e) => setReason(e.target.value)}
-                                    placeholder="State the reason (e.g., expired, damaged, recalled)"
-                                    className="w-full h-24 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent resize-none text-gray-700"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="Provide detailed reason (e.g., expired on [date], damaged during transport, manufacturer recall notice #[number], contamination detected)"
+                                    className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent resize-none text-gray-700"
                                 />
+                                <div className="mt-1 text-xs text-gray-500">
+                                    Minimum 10 characters required. This will be stored in the medicine_deleted table.
+                                </div>
                             </div>
                             
                             <div className="flex justify-center items-center space-x-4 mt-6">
