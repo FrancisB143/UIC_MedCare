@@ -468,7 +468,15 @@ const BranchInventoryPage: React.FC = () => {
                 // History logging is now handled by database triggers
                 // No need for manual logging here
                 
-                // Success message removed as requested
+                // Show success alert
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Medicine Restocked Successfully!',
+                    text: `${formData.quantity} units of ${medicineToReorder.medicine?.medicine_name} have been added to inventory.`,
+                    confirmButtonText: 'OK',
+                    timer: 3000,
+                    timerProgressBar: true
+                });
 
                 setMedicineToReorder(null);
                 // Reload data to show the new separate entry
@@ -544,7 +552,15 @@ const BranchInventoryPage: React.FC = () => {
             setAddMedicineModalOpen(false);
             await loadInventoryData();
             
-            // Success message removed as requested
+            // Show success alert
+            Swal.fire({
+                icon: 'success',
+                title: 'Medicine Added Successfully!',
+                text: `${medicineData.medicineName} has been added to the inventory.`,
+                confirmButtonText: 'OK',
+                timer: 3000,
+                timerProgressBar: true
+            });
             
         } catch (error) {
             console.error('Error adding medicine:', error);

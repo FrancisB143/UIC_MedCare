@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { X, Plus, Calendar, CheckCircle } from 'lucide-react';
 
@@ -34,6 +34,14 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     const [formData, setFormData] = useState<MedicineFormData>(initialFormData);
     const [errors, setErrors] = useState<Record<string, string>>({});
     // Removed view state
+
+    // Reset form when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setFormData(initialFormData);
+            setErrors({});
+        }
+    }, [isOpen]);
 
     // Get current date and time
     const getCurrentDateTime = () => {

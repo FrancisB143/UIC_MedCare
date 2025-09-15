@@ -51,7 +51,9 @@ export interface BranchInventoryItem {
 }
 
 export interface BranchStockSummary {
+    medicine_id: number
     medicine_name: string
+    medicine_category: string
     category: string
     quantity: number
     reorder_level: number
@@ -101,7 +103,7 @@ export class BranchInventoryService {
         try {
             const medicine = {
                 medicine_name: medicineName,
-                category: category,
+                medicine_category: category,
                 expiry: new Date().toISOString() // Default expiry
             };
 
@@ -347,14 +349,64 @@ export class BranchInventoryService {
 
     // @deprecated - Use MSSQL API endpoint instead
     static async getLowStockMedicines(branchId: number): Promise<BranchStockSummary[]> {
-        console.warn('BranchInventoryService.getLowStockMedicines is deprecated. Use MSSQL API endpoint instead.');
+        console.warn('BranchInventoryService.getLowStockMedicines is deprecated. Use getLowStockMedicinesMSSQL instead.');
         return [];
     }
 
     // @deprecated - Use MSSQL API endpoint instead
     static async getBranchStockInRecords(branchId: number): Promise<MedicineStockIn[]> {
-        console.warn('BranchInventoryService.getBranchStockInRecords is deprecated. Use MSSQL API endpoint instead.');
+        console.warn('BranchInventoryService.getBranchStockInRecords is deprecated. Use getSoonToExpireMedicinesMSSQL instead.');
         return [];
+    }
+
+    /**
+     * Get low stock medicines from MSSQL database (≤ 50 units)
+     */
+    static async getLowStockMedicinesMSSQL(branchId: number): Promise<BranchStockSummary[]> {
+        try {
+            const response = await fetch(`/api/branches/${branchId}/low-stock`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Error fetching low stock medicines:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get medicines expiring within 30 days from MSSQL database
+     */
+    static async getSoonToExpireMedicinesMSSQL(branchId: number): Promise<any[]> {
+        try {
+            const response = await fetch(`/api/branches/${branchId}/expiring-soon`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Error fetching soon to expire medicines:', error);
+            throw error;
+        }
     }
 
     // @deprecated - Use MSSQL API endpoint instead

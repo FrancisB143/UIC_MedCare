@@ -42,6 +42,10 @@ Route::post('/dispense-v2', [UserController::class, 'dispenseMedicineV2']);
 Route::get('/history-log', [UserController::class, 'getHistoryLog']);
 Route::post('/history-log', [UserController::class, 'addHistoryLog']);
 
+// Dashboard routes for MSSQL integration
+Route::get('/branches/{branchId}/low-stock', [UserController::class, 'getLowStockMedicines']);
+Route::get('/branches/{branchId}/expiring-soon', [UserController::class, 'getSoonToExpireMedicines']);
+
 // The default user route can stay if you need it
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

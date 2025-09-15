@@ -1058,4 +1058,88 @@ class UserController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get low stock medicines for a branch (≤ 50 units)
+     */
+    public function getLowStockMedicines($branchId)
+    {
+        try {
+            Log::info("Getting low stock medicines for branch: {$branchId}");
+
+            $lowStockMedicines = DB::table('medicine_stock_in as msi')
+                ->join('medicines as m', 'msi.medicine_id', '=', 'm.medicine_id')
+                ->select(
+                    'm.medicine_id',
+                    'm.medicine_name',
+                    'm.medicine_category',
+                    DB::raw('SUM(msi.quantity) as total_quantity')
+                )
+                ->where('msi.branch_id', $branchId)
+                ->where('msi.quantity', '>', 0) // Only count records with available stock
+                ->groupBy('m.medicine_id', 'm.medicine_name', 'm.medicine_category')
+                ->havingRaw('SUM(msi.quantity) <= 50') // Low stock threshold
+                ->orderBy('total_quantity', 'asc') // Lowest stock first
+                ->get();
+
+            Log::info("Found " . count($lowStockMedicines) . " low stock medicines");
+
+            return response()->json($lowStockMedicines->map(function($medicine) {
+                return [
+                    'medicine_id' => $medicine->medicine_id,
+                    'medicine_name' => $medicine->medicine_name,
+                    'medicine_category' => $medicine->medicine_category,
+                    'quantity' => $medicine->total_quantity
+                ];
+            }));
+
+        } catch (\Exception $e) {
+            Log::error("Error getting low stock medicines: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get medicines expiring within 30 days for a branch
+     */
+    public function getSoonToExpireMedicines($branchId)
+    {
+        try {
+            Log::info("Getting soon to expire medicines for branch: {$branchId}");
+
+            $soonToExpireMedicines = DB::table('medicine_stock_in as msi')
+                ->join('medicines as m', 'msi.medicine_id', '=', 'm.medicine_id')
+                ->select(
+                    'm.medicine_name',
+                    'msi.expiration_date',
+                    DB::raw('DATEDIFF(day, GETDATE(), msi.expiration_date) as days_until_expiry')
+                )
+                ->where('msi.branch_id', $branchId)
+                ->where('msi.quantity', '>', 0) // Only include medicines with stock
+                ->whereRaw('DATEDIFF(day, GETDATE(), msi.expiration_date) <= 30') // Within 30 days
+                ->whereRaw('DATEDIFF(day, GETDATE(), msi.expiration_date) >= 0') // Not expired yet
+                ->orderByRaw('DATEDIFF(day, GETDATE(), msi.expiration_date) asc') // Soonest first
+                ->get();
+
+            Log::info("Found " . count($soonToExpireMedicines) . " medicines expiring soon");
+
+            return response()->json($soonToExpireMedicines->map(function($medicine) {
+                return [
+                    'medicine_name' => $medicine->medicine_name,
+                    'expiration_date' => $medicine->expiration_date,
+                    'days_until_expiry' => $medicine->days_until_expiry
+                ];
+            }));
+
+        } catch (\Exception $e) {
+            Log::error("Error getting soon to expire medicines: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

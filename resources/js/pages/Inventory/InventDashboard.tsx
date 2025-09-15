@@ -80,7 +80,7 @@ const MeditrackDashboard: React.FC = () => {
     const loadLowStockMedicines = async () => {
         try {
             setIsLoading(true);
-            const lowStock = await BranchInventoryService.getLowStockMedicines(currentUser.branch_id);
+            const lowStock = await BranchInventoryService.getLowStockMedicinesMSSQL(currentUser.branch_id);
             // Get top 5 medicines that need reorder (sorted by quantity ascending)
             const top5LowStock = lowStock
                 .sort((a, b) => a.quantity - b.quantity)
@@ -96,30 +96,9 @@ const MeditrackDashboard: React.FC = () => {
     const loadSoonToExpireMedicines = async () => {
         try {
             setIsLoadingExpiry(true);
-            const stockInRecords = await BranchInventoryService.getBranchStockInRecords(currentUser.branch_id);
+            const expiringMedicines = await BranchInventoryService.getSoonToExpireMedicinesMSSQL(currentUser.branch_id);
             
-            const now = new Date();
-            const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
-            
-            const expiringMedicines: SoonToExpireMedicine[] = [];
-            
-            stockInRecords.forEach(record => {
-                if (record.expiration_date) {
-                    const expiryDate = new Date(record.expiration_date);
-                    const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                    
-                    // Include medicines expiring within 30 days (and not expired)
-                    if (daysUntilExpiry <= 30 && daysUntilExpiry >= 0) {
-                        expiringMedicines.push({
-                            medicine_name: record.medicine?.medicine_name || 'Unknown Medicine',
-                            expiration_date: record.expiration_date,
-                            days_until_expiry: daysUntilExpiry
-                        });
-                    }
-                }
-            });
-            
-            // Sort by days until expiry (soonest first) and take top 1
+            // Take only the first (most urgent) medicine
             const sortedExpiring = expiringMedicines
                 .sort((a, b) => a.days_until_expiry - b.days_until_expiry)
                 .slice(0, 1);

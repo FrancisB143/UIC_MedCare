@@ -8,16 +8,28 @@ This guide will help you set up database triggers that automatically insert reco
 - Admin access to execute DDL statements (CREATE TRIGGER)
 - Your existing tables: `medicine_stock_in`, `medicine_stock_out`, `medicine_deleted`, `history_log`, `medicines`
 
+## Available Implementation Files
+1. **`database/update_stock_in_trigger.sql`** - Stock in trigger for add/reorder operations
+2. **`database/update_dispense_trigger.sql`** - Stock out trigger for dispense operations  
+3. **`database/check_triggers.sql`** - Verification script to check if triggers exist
+4. **`database/troubleshoot_triggers.sql`** - Comprehensive debugging and testing script
+
 ## Implementation Steps
 
-### Step 1: Execute the Trigger Creation Script
-Run the SQL script located at: `database/setup_history_triggers.sql`
+### Step 1: Execute the Individual Trigger Update Scripts
+Run the specific trigger update scripts:
 
-You can execute this in:
-- SQL Server Management Studio (SSMS)
-- Azure Data Studio
-- Command line with `sqlcmd`
-- Your database administration tool
+**For Stock In Trigger (Add Medicine):**
+```sql
+-- Run this file in your MSSQL database:
+-- database/update_stock_in_trigger.sql
+```
+
+**For Stock Out Trigger (Dispense Medicine):**
+```sql
+-- Run this file in your MSSQL database:
+-- database/update_dispense_trigger.sql
+```
 
 ### Step 2: Verify Triggers Are Created
 After execution, run this query to verify:

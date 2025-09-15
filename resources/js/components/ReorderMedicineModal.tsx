@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle } from 'lucide-react'; // Using an icon for the success view
 
 // Interface for the form data, consistent with AddMedicineModal
 interface ReorderFormData {
@@ -44,7 +43,6 @@ const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({
 
     const [formData, setFormData] = useState<ReorderFormData>(initialFormData);
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [view, setView] = useState<'form' | 'success'>('form');
 
     // Effect to reset the form when the modal is opened
     useEffect(() => {
@@ -54,9 +52,7 @@ const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({
                 ...initialFormData,
                 dateReceived: new Date().toISOString().split('T')[0],
             });
-            setErrors({});
-            // Ensure the view is reset to the form
-            setView('form'); 
+            setErrors({}); 
         }
     }, [isOpen]);
 
@@ -100,45 +96,13 @@ const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({
                 quantity: Number(formData.quantity)
             };
             onSubmit(submissionData);
-            setView('success'); // Switch to the success view
+            handleClose(); // Close modal immediately after submission
         }
     };
 
     const handleClose = () => {
         setIsOpen(false);
     };
-
-    // Success View Component
-    const SuccessView = () => (
-        <div className="p-6 text-center animate-fade-in">
-            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-            <h2 className="text-xl font-bold text-green-600 mb-4">
-                REORDER SUCCESSFUL!
-            </h2>
-            <div className="space-y-2 text-sm text-left bg-gray-50 p-3 rounded-lg border">
-                <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500 text-xs">MEDICINE:</span>
-                    <span className="font-medium text-gray-900 text-xs">{medicineName}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500 text-xs">NEW EXPIRATION:</span>
-                    <span className="font-medium text-gray-900 text-xs">{formData.expirationDate}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="font-semibold text-gray-500 text-xs">QUANTITY ADDED:</span>
-                    <span className="font-bold text-red-500 text-sm">{formData.quantity}</span>
-                </div>
-            </div>
-            <div className="flex justify-center pt-6">
-                <button
-                    onClick={handleClose}
-                    className="w-full bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-6 rounded-lg transition-colors text-sm"
-                >
-                    CLOSE
-                </button>
-            </div>
-        </div>
-    );
 
     return (
         <>
@@ -158,9 +122,8 @@ const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({
                         onClick={(e: React.MouseEvent) => e.stopPropagation()}
                         className="bg-white rounded-xl w-full max-w-sm shadow-2xl cursor-default relative overflow-hidden animate-scale-in border-2 border-[#A3386C]"
                     >
-                        {view === 'form' ? (
-                             <div className="p-6 text-center">
-                                <h2 className="text-xl font-bold text-[#A3386C] mb-4">REORDER MEDICINE</h2>
+                        <div className="p-6 text-center">
+                            <h2 className="text-xl font-bold text-[#A3386C] mb-4">REORDER MEDICINE</h2>
                                 
                                 {/* Current Stock Info */}
                                 <div className="bg-gray-50 rounded-lg p-3 mb-4 text-left">
@@ -238,9 +201,6 @@ const ReorderMedicineModal: React.FC<ReorderMedicineModalProps> = ({
                                     <button onClick={handleSubmit} className="w-full bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-4 rounded-lg transition-colors cursor-pointer text-sm">SUBMIT</button>
                                 </div>
                             </div>
-                        ) : (
-                            <SuccessView />
-                        )}
                     </div>
                 </div>
             </div>
