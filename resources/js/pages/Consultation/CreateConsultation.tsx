@@ -1,5 +1,6 @@
+// resources/js/pages/Consultation/CreateConsultation.tsx
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { router, usePage } from '@inertiajs/react';
 import {
     User,
     ChevronLeft,
@@ -18,19 +19,20 @@ import {
 } from 'lucide-react';
 
 const CreateConsultation: React.FC = () => {
-    const navigate = useNavigate();
-    const { id } = useParams<{ id: string }>();
+    // Get the id from Inertia's page props (passed from Laravel controller)
+    const { props } = usePage();
+    const id = (props as any).id as string;
+    
     const [isSidebarOpen, setSidebarOpen] = React.useState(true);
     const [isSearchOpen, setSearchOpen] = React.useState(false);
     const [isInventoryOpen, setInventoryOpen] = React.useState(false);
 
     const handleNavigation = (path: string): void => {
-        navigate(path);
+        router.visit(path);
     };
 
     const handleLogout = (): void => {
-        localStorage.removeItem("isLoggedIn");
-        navigate("/");
+        router.post('/logout');
     };
 
     const toggleSidebar = () => {
@@ -38,16 +40,16 @@ const CreateConsultation: React.FC = () => {
     };
 
     const handleBack = () => {
-        navigate(-1); // Go back to previous page
+        router.visit(-1 as any); // Go back to previous page
     };
 
     // Navigation handlers for consultation types
     const handleWalkIn = () => {
-        navigate(`/search/student/${id}/create-consultation/walk-in`);
+        router.visit(`/consultation/student/${id}/create/walk-in`);
     };
 
     const handleScheduled = () => {
-        navigate(`/search/student/${id}/create-consultation/scheduled`);
+        router.visit(`/consultation/student/${id}/create/scheduled`);
     };
 
     return (
@@ -173,10 +175,10 @@ const CreateConsultation: React.FC = () => {
 
                     {/* Consultation Type Selection */}
                     <main className="flex-1 p-6 overflow-y-auto bg-white">
-                        <h1 className="text-3xl font-bold text-gray-800 mb-6">Create Consultation Record</h1>
+                        <h1 className="text-3xl font-bold text-black mb-6">Create Consultation Record</h1>
 
                         <div className="mb-8">
-                            <h2 className="text-xl font-semibold text-gray-700 mb-4">Consultation Type:</h2>
+                            <h2 className="text-xl font-semibold text-black mb-4">Consultation Type:</h2>
                             <div className="space-y-4">
                                 <button
                                     className="bg-[#A3386C] text-white p-4 rounded-lg hover:bg-[#77536A] w-full"

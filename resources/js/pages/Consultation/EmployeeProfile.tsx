@@ -1,6 +1,6 @@
-// src/pages/Search/EmployeeProfile.tsx
+// resources/js/pages/Consultation/EmployeeProfile.tsx
 import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { router, usePage } from '@inertiajs/react';
 import {
     Bell,
     User,
@@ -20,20 +20,21 @@ import {
 import { getPatientById } from '../../data/mockData';
 
 const EmployeeProfile: React.FC = () => {
-    const { id } = useParams<{ id: string }>();
-    const navigate = useNavigate();
+    // Get the id from Inertia's page props (passed from Laravel controller)
+    const { props } = usePage();
+    const id = (props as any).id as string;
+    
     const [isSidebarOpen, setSidebarOpen] = useState(true);
-    const [isSearchOpen, setSearchOpen] = useState(false);
+    const [isSearchOpen, setSearchOpen] = useState(false); 
     const [isInventoryOpen, setInventoryOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('medicalHistory');
 
     const handleNavigation = (path: string): void => {
-        navigate(path);
+        router.visit(path);
     };
 
     const handleLogout = (): void => {
-        localStorage.removeItem("isLoggedIn");
-        navigate("/");
+        router.post('/logout');
     };
 
     const toggleSidebar = () => {
@@ -58,15 +59,15 @@ const EmployeeProfile: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#D4A5B8] text-black">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Condition</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Diagnosed</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Condition</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Diagnosed</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {employee.medicalHistory.map((item: any, index: number) => (
                             <tr key={index}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.condition}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.diagnosed}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{item.condition}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{item.diagnosed}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -78,15 +79,15 @@ const EmployeeProfile: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#D4A5B8] text-black">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Notes</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Date</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Notes</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {employee.consultations.map((item: any, index: number) => (
                             <tr key={index}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.date}</td>
-                                <td className="px-6 py-4 text-sm text-gray-900">{item.notes}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{item.date}</td>
+                                <td className="px-6 py-4 text-sm text-black">{item.notes}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -98,15 +99,15 @@ const EmployeeProfile: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#D4A5B8] text-black">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Note</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Date</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Note</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {employee.remarks.map((item: any, index: number) => (
                             <tr key={index}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.date}</td>
-                                <td className="px-6 py-4 text-sm text-gray-900">{item.note}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{item.date}</td>
+                                <td className="px-6 py-4 text-sm text-black">{item.note}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -118,79 +119,79 @@ const EmployeeProfile: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <p className="text-sm text-gray-500">Last Name</p>
-                        <p className="font-medium">{employee.additionalProfile.lastName}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.lastName}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">First Name</p>
-                        <p className="font-medium">{employee.additionalProfile.firstName}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.firstName}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Middle Initial</p>
-                        <p className="font-medium">{employee.additionalProfile.middleInitial}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.middleInitial}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Suffix</p>
-                        <p className="font-medium">{employee.additionalProfile.suffix || "N/A"}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.suffix || "N/A"}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Date of Birth</p>
-                        <p className="font-medium">{employee.additionalProfile.dateOfBirth}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.dateOfBirth}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Nationality/Citizenship</p>
-                        <p className="font-medium">{employee.additionalProfile.nationality}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.nationality}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Civil Status</p>
-                        <p className="font-medium">{employee.additionalProfile.civilStatus}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.civilStatus}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Address</p>
-                        <p className="font-medium">{employee.additionalProfile.address}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.address}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Guardian's Name</p>
-                        <p className="font-medium">{employee.additionalProfile.guardianName || "N/A"}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.guardianName || "N/A"}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Guardian's Contact Number</p>
-                        <p className="font-medium">{employee.additionalProfile.guardianContact || "N/A"}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.guardianContact || "N/A"}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Blood Type</p>
-                        <p className="font-medium">{employee.additionalProfile.bloodType}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.bloodType}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Height</p>
-                        <p className="font-medium">{employee.additionalProfile.height}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.height}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Religion/Faith</p>
-                        <p className="font-medium">{employee.additionalProfile.religion}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.religion}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Eye Color</p>
-                        <p className="font-medium">{employee.additionalProfile.eyeColor}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.eyeColor}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Chronic Condition(s)</p>
-                        <p className="font-medium">{employee.additionalProfile.chronicConditions.join(", ") || "None"}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.chronicConditions.join(", ") || "None"}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Known Allergies</p>
-                        <p className="font-medium">{employee.additionalProfile.knownAllergies.join(", ") || "None"}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.knownAllergies.join(", ") || "None"}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Disabilities</p>
-                        <p className="font-medium">{employee.additionalProfile.disabilities}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.disabilities}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Immunization History</p>
-                        <p className="font-medium">{employee.additionalProfile.immunizationHistory.join(", ") || "None"}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.immunizationHistory.join(", ") || "None"}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Genetic Conditions</p>
-                        <p className="font-medium">{employee.additionalProfile.geneticConditions}</p>
+                        <p className="font-medium text-black">{employee.additionalProfile.geneticConditions}</p>
                     </div>
                 </div>
             </div>
@@ -321,10 +322,10 @@ const EmployeeProfile: React.FC = () => {
                     {/* Profile Content */}
                     <main className="flex-1 p-6 overflow-y-auto bg-white">
                         <div className="flex justify-between items-center mb-6">
-                            <h1 className="text-3xl font-bold text-gray-800">Employee Profile: {employee.name}</h1>
+                            <h1 className="text-3xl font-bold text-black">Employee Profile: {employee.name}</h1>
                             <button
                                 className="bg-[#A3386C] text-white p-2 rounded-full hover:bg-[#77536A] relative group"
-                                onClick={() => navigate(`/search/employee/${id}/create-consultation`)}
+                                onClick={() => handleNavigation(`/consultation/employee/${id}/create`)}
                             >
                                 <Plus className="w-5 h-5" />
                                 <span className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded py-1 px-2">
@@ -335,35 +336,35 @@ const EmployeeProfile: React.FC = () => {
 
                         {/* Employee Info */}
                         <div className="mb-8">
-                            <h2 className="text-xl font-semibold text-gray-700 mb-4">Personal Information</h2>
+                            <h2 className="text-xl font-semibold text-black mb-4">Personal Information</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <p className="text-sm text-gray-500">Name</p>
-                                    <p className="font-medium">{employee.name}</p>
+                                    <p className="font-medium text-black">{employee.name}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Age</p>
-                                    <p className="font-medium">{employee.age}</p>
+                                    <p className="font-medium text-black">{employee.age}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Gender</p>
-                                    <p className="font-medium">{employee.gender}</p>
+                                    <p className="font-medium text-black">{employee.gender}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Department</p>
-                                    <p className="font-medium">{employee.department}</p>
+                                    <p className="font-medium text-black">{employee.department}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Position</p>
-                                    <p className="font-medium">{employee.position}</p>
+                                    <p className="font-medium text-black">{employee.position}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Contact</p>
-                                    <p className="font-medium">{employee.contact}</p>
+                                    <p className="font-medium text-black">{employee.contact}</p>
                                 </div>
                                 <div className="md:col-span-2">
                                     <p className="text-sm text-gray-500">Address</p>
-                                    <p className="font-medium">{employee.address}</p>
+                                    <p className="font-medium text-black">{employee.address}</p>
                                 </div>
                             </div>
                         </div>
@@ -372,25 +373,25 @@ const EmployeeProfile: React.FC = () => {
                         <div className="mb-8">
                             <div className="flex space-x-4 mb-4">
                                 <button
-                                    className={`px-4 py-2 rounded-lg ${activeTab === 'medicalHistory' ? 'bg-[#D4A5B8]' : 'hover:bg-[#D4A5B8]'}`}
+                                    className={`px-4 py-2 rounded-lg ${activeTab === 'medicalHistory' ? 'bg-[#D4A5B8] text-black' : 'hover:bg-[#D4A5B8] text-black'}`}
                                     onClick={() => setActiveTab('medicalHistory')}
                                 >
                                     Medical History
                                 </button>
                                 <button
-                                    className={`px-4 py-2 rounded-lg ${activeTab === 'consultations' ? 'bg-[#D4A5B8]' : 'hover:bg-[#D4A5B8]'}`}
+                                    className={`px-4 py-2 rounded-lg ${activeTab === 'consultations' ? 'bg-[#D4A5B8] text-black' : 'hover:bg-[#D4A5B8] text-black'}`}
                                     onClick={() => setActiveTab('consultations')}
                                 >
                                     Past Consultations
                                 </button>
                                 <button
-                                    className={`px-4 py-2 rounded-lg ${activeTab === 'remarks' ? 'bg-[#D4A5B8]' : 'hover:bg-[#D4A5B8]'}`}
+                                    className={`px-4 py-2 rounded-lg ${activeTab === 'remarks' ? 'bg-[#D4A5B8] text-black' : 'hover:bg-[#D4A5B8] text-black'}`}
                                     onClick={() => setActiveTab('remarks')}
                                 >
                                     Remark Records
                                 </button>
                                 <button
-                                    className={`px-4 py-2 rounded-lg ${activeTab === 'additionalProfile' ? 'bg-[#D4A5B8]' : 'hover:bg-[#D4A5B8]'}`}
+                                    className={`px-4 py-2 rounded-lg ${activeTab === 'additionalProfile' ? 'bg-[#D4A5B8] text-black' : 'hover:bg-[#D4A5B8] text-black'}`}
                                     onClick={() => setActiveTab('additionalProfile')}
                                 >
                                     Additional Profile

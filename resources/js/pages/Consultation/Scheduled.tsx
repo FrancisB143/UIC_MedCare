@@ -1,6 +1,6 @@
-// src/pages/Search/Scheduled.tsx
+// resources/js/pages/Consultation/Scheduled.tsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { router, usePage } from '@inertiajs/react';
 import {
     User,
     Bell,
@@ -19,8 +19,9 @@ import {
 import { getPatientById, addConsultation, addRemark } from '../../data/mockData';
 
 const Scheduled: React.FC = () => {
-    const navigate = useNavigate();
-    const { id } = useParams<{ id: string }>();
+    // Get the id from Inertia's page props
+    const { props } = usePage();
+    const id = (props as any).id as string;
     
     // Sidebar states
     const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -56,12 +57,11 @@ const Scheduled: React.FC = () => {
     }, [id]);
 
     const handleNavigation = (path: string): void => {
-        navigate(path);
+        router.visit(path);
     };
 
     const handleLogout = (): void => {
-        localStorage.removeItem("isLoggedIn");
-        navigate("/");
+        router.post('/logout');
     };
 
     const toggleSidebar = () => {
@@ -100,9 +100,9 @@ const Scheduled: React.FC = () => {
             setShowSuccess(false);
             // Navigate back to the correct profile page
             if (patient.type === 'student') {
-                navigate(`/search/student/${id}`);
+                router.visit(`/consultation/student/${id}`);
             } else {
-                navigate(`/search/employee/${id}`);
+                router.visit(`/consultation/employee/${id}`);
             }
         }, 2000);
     };
@@ -240,7 +240,7 @@ const Scheduled: React.FC = () => {
 
                 {/* Main Content */}
                 <main className="flex-1 p-6 overflow-y-auto bg-white">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-6">
+                    <h1 className="text-3xl font-bold text-black mb-6">
                         Scheduled Consultation - {patient.name}
                     </h1>
                     
@@ -255,26 +255,26 @@ const Scheduled: React.FC = () => {
                         {/* Date and Time - Editable for scheduled appointments */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                             <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">
+                                <label className="block text-black text-sm font-bold mb-2">
                                     Date *
                                 </label>
                                 <input
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C]"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] text-black"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">
+                                <label className="block text-black text-sm font-bold mb-2">
                                     Time *
                                 </label>
                                 <input
                                     type="time"
                                     value={time}
                                     onChange={(e) => setTime(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C]"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] text-black"
                                     required
                                 />
                             </div>
@@ -289,38 +289,38 @@ const Scheduled: React.FC = () => {
                                     onChange={(e) => setReferToDoctor(e.target.checked)}
                                     className="w-5 h-5 text-[#A3386C] rounded focus:ring-[#A3386C]"
                                 />
-                                <span className="ml-2 text-gray-700 font-bold">Refer to Doctor?</span>
+                                <span className="ml-2 text-black font-bold">Refer to Doctor?</span>
                             </label>
                         </div>
 
                         {/* Vital Signs */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                             <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">
+                                <label className="block text-black text-sm font-bold mb-2">
                                     Blood Pressure
                                 </label>
                                 <input
                                     type="text"
                                     value={bloodPressure}
                                     onChange={(e) => setBloodPressure(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C]"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] text-black"
                                     placeholder="e.g., 120/80"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">
+                                <label className="block text-black text-sm font-bold mb-2">
                                     Pulse (BPM)
                                 </label>
                                 <input
                                     type="number"
                                     value={pulse}
                                     onChange={(e) => setPulse(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C]"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] text-black"
                                     placeholder="e.g., 72"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">
+                                <label className="block text-black text-sm font-bold mb-2">
                                     Temperature (°C)
                                 </label>
                                 <input
@@ -328,12 +328,12 @@ const Scheduled: React.FC = () => {
                                     step="0.1"
                                     value={temperature}
                                     onChange={(e) => setTemperature(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C]"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] text-black"
                                     placeholder="e.g., 36.5"
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">
+                                <label className="block text-black text-sm font-bold mb-2">
                                     Weight (kg)
                                 </label>
                                 <input
@@ -341,7 +341,7 @@ const Scheduled: React.FC = () => {
                                     step="0.1"
                                     value={weight}
                                     onChange={(e) => setWeight(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C]"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] text-black"
                                     placeholder="e.g., 65.5"
                                 />
                             </div>
@@ -350,27 +350,27 @@ const Scheduled: React.FC = () => {
                         {/* Last Menstrual Period (only for females) */}
                         {patient.gender === 'Female' && (
                             <div className="mb-6">
-                                <label className="block text-gray-700 text-sm font-bold mb-2">
+                                <label className="block text-black text-sm font-bold mb-2">
                                     Last Menstrual Period
                                 </label>
                                 <input
                                     type="date"
                                     value={lastMenstrualPeriod}
                                     onChange={(e) => setLastMenstrualPeriod(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C]"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] text-black"
                                 />
                             </div>
                         )}
 
                         {/* Complaints */}
                         <div className="mb-6">
-                            <label className="block text-gray-700 text-sm font-bold mb-2">
+                            <label className="block text-black text-sm font-bold mb-2">
                                 Complaints
                             </label>
                             <textarea
                                 value={complaints}
                                 onChange={(e) => setComplaints(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C]"
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] text-black"
                                 rows={3}
                                 required
                             />
@@ -378,13 +378,13 @@ const Scheduled: React.FC = () => {
 
                         {/* Remarks */}
                         <div className="mb-6">
-                            <label className="block text-gray-700 text-sm font-bold mb-2">
+                            <label className="block text-black text-sm font-bold mb-2">
                                 Remarks
                             </label>
                             <textarea
                                 value={remarks}
                                 onChange={(e) => setRemarks(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C]"
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] text-black"
                                 rows={3}
                             />
                         </div>

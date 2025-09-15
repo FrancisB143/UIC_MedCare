@@ -1,6 +1,6 @@
-// src/pages/Search/Employee.tsx
+// resources/js/pages/Search/Employee.tsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { router } from '@inertiajs/react';
 import {
     Bell,
     User,
@@ -19,18 +19,16 @@ import {
 import { getEmployees } from '../../data/mockData';
 
 const Employee: React.FC = () => {
-    const navigate = useNavigate();
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(false);
 
     const handleNavigation = (path: string): void => {
-        navigate(path);
+        router.visit(path);
     };
 
     const handleLogout = (): void => {
-        localStorage.removeItem("isLoggedIn");
-        navigate("/");
+        console.log("Logout clicked");
     };
 
     const toggleSidebar = () => {
@@ -161,18 +159,18 @@ const Employee: React.FC = () => {
 
                     {/* Employee List Content */}
                     <main className="flex-1 p-6 overflow-y-auto bg-white">
-                        <h1 className="text-3xl font-bold text-gray-800 mb-6">Employee Patients</h1>
+                        <h1 className="text-3xl font-bold text-black mb-6">Employee Patients</h1>
 
                         <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-[#D4A5B8] text-black">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Age</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Gender</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Department</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Position</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">ID</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Age</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Gender</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Department</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">Position</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -180,14 +178,14 @@ const Employee: React.FC = () => {
                                         <tr
                                             key={employee.id}
                                             className="hover:bg-gray-50 cursor-pointer"
-                                            onClick={() => navigate(`/search/employee/${employee.id}`)}
+                                            onClick={() => handleNavigation(`/consultation/employee/${employee.id}`)}
                                         >
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.id}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.age}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.gender}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.department}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.position}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.id}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.age}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.gender}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.department}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.position}</td>
                                         </tr>
                                     ))}
                                 </tbody>
