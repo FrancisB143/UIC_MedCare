@@ -50,5 +50,6 @@ Route::get('/consultation/student/{id}/create/walk-in', fn($id) => Inertia::rend
 Route::get('/consultation/employee/{id}/create/walk-in', fn($id) => Inertia::render('Consultation/WalkIn', ['id' => $id]));
 Route::get('/consultation/student/{id}/create/scheduled', fn($id) => Inertia::render('Consultation/Scheduled', ['id' => $id]));
 Route::get('/consultation/employee/{id}/create/scheduled', fn($id) => Inertia::render('Consultation/Scheduled', ['id' => $id]));
+Route::get('/Chat', fn() => Inertia::render('Chat'));
 
 Route::post('/api/auth/google', [GoogleAuthController::class, 'authenticate']);
