@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import NotificationBell, { Notification as NotificationType } from '../components/NotificationBell';
 import { router } from '@inertiajs/react';
 import Sidebar from '../components/Sidebar';
-import { Menu, Facebook, Instagram, Linkedin } from 'lucide-react';
+import { Menu, Facebook, Instagram, Linkedin, MessageSquare } from 'lucide-react';
 
 interface CreatorCardProps {
     image: string;

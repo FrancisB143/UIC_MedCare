@@ -14,7 +14,8 @@ import {
     GraduationCap,
     Briefcase,
     ChevronDown,
-    Menu
+    Menu,
+    MessageSquare
 } from 'lucide-react';
 
 const Print: React.FC = () => {
@@ -189,6 +190,11 @@ const Print: React.FC = () => {
                             <div className="flex items-center px-4 py-3 hover:bg-white/10 rounded-lg cursor-pointer transition-colors" onClick={() => handleNavigation('/About')}>
                                 <ShieldQuestion className="w-5 h-5 text-white flex-shrink-0" />
                                 {isSidebarOpen && <span className="ml-3 text-sm">About</span>}
+                            </div>
+
+                            <div className="flex items-center px-4 py-3 hover:bg-white/10 rounded-lg cursor-pointer transition-colors" onClick={() => handleNavigation('/Chat')}>
+                                <MessageSquare className="w-5 h-5 text-white flex-shrink-0" />
+                                {isSidebarOpen && <span className="ml-3 text-sm">Chat</span>}
                             </div>
                         </div>
                     </nav>

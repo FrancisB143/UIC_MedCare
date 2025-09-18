@@ -14,7 +14,8 @@ import {
     GraduationCap,
     Briefcase,
     ChevronDown,
-    Menu
+    Menu,
+    MessageSquare
 } from 'lucide-react';
 import { getEmployees } from '../../data/mockData';
 
@@ -22,6 +23,8 @@ const Employee: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(false);
+    const [sortBy, setSortBy] = useState<'lastName' | 'department'>('lastName');
+    const [searchTerm, setSearchTerm] = useState('');
 
     const handleNavigation = (path: string): void => {
         router.visit(path);
@@ -37,6 +40,24 @@ const Employee: React.FC = () => {
 
     // Get employee data from centralized mock data
     const employees = getEmployees();
+
+    // Filter and sort employees
+    const filteredAndSortedEmployees = employees
+        .filter(employee => 
+            employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.id.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .sort((a, b) => {
+            if (sortBy === 'lastName') {
+                const lastNameA = a.name.split(' ').pop() || '';
+                const lastNameB = b.name.split(' ').pop() || '';
+                return lastNameA.localeCompare(lastNameB);
+            } else {
+                return a.department.localeCompare(b.department);
+            }
+        });
 
     return (
         <>
@@ -133,6 +154,11 @@ const Employee: React.FC = () => {
                                 <ShieldQuestion className="w-5 h-5 text-white flex-shrink-0" />
                                 {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">About</p>}
                             </div>
+
+                            <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/Chat')}>
+                                <MessageSquare className="w-5 h-5 text-white flex-shrink-0" />
+                                {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">Chat</p>}
+                            </div>
                         </div>
                     </nav>
 
@@ -161,6 +187,30 @@ const Employee: React.FC = () => {
                     <main className="flex-1 p-6 overflow-y-auto bg-white">
                         <h1 className="text-3xl font-bold text-black mb-6">Employee Patients</h1>
 
+                        {/* Search and Sort Controls */}
+                        <div className="mb-6 flex flex-wrap gap-4 items-center">
+                            <div className="flex-1 min-w-[200px]">
+                                <input
+                                    type="text"
+                                    placeholder="Search employees..."
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#A3386C] focus:border-[#A3386C] outline-none"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="text-black font-medium">Sort by:</label>
+                                <select
+                                    className="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#A3386C] focus:border-[#A3386C] outline-none cursor-pointer text-black"
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value as 'lastName' | 'department')}
+                                >
+                                    <option value="lastName">Last Name</option>
+                                    <option value="department">Department</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-[#D4A5B8] text-black">
@@ -174,7 +224,7 @@ const Employee: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {employees.map((employee) => (
+                                    {filteredAndSortedEmployees.map((employee) => (
                                         <tr
                                             key={employee.id}
                                             className="hover:bg-gray-50 cursor-pointer"

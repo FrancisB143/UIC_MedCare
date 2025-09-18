@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
-import { Menu, Printer } from 'lucide-react';
+import { Menu, Printer, MessageSquare } from 'lucide-react';
 import NotificationBell, { Notification as NotificationType } from '../components/NotificationBell';
 import Sidebar from '../components/Sidebar';
 

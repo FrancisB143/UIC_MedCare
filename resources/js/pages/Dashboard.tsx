@@ -17,7 +17,8 @@ import {
     Menu,
     Users,
     Stethoscope,
-    Calendar
+    Calendar,
+    MessageSquare
 } from 'lucide-react';
 import { getStudents, getEmployees } from '../data/mockData';
 
@@ -200,6 +201,11 @@ const Dashboard: React.FC = () => {
                         <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/About')}>
                             <ShieldQuestion className="w-5 h-5 text-white flex-shrink-0" />
                             {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">About</p>}
+                        </div>
+
+                        <div className="flex items-center px-4 py-3 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => handleNavigation('/Chat')}>
+                            <MessageSquare className="w-5 h-5 text-white flex-shrink-0" />
+                            {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">Chat</p>}
                         </div>
                     </div>
                 </nav>

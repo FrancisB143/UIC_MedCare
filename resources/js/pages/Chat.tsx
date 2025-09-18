@@ -176,6 +176,7 @@ const Chat: React.FC = () => {
     const [isTyping, setIsTyping] = useState(false);
     const [typingContact, setTypingContact] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleNavigation = (path: string): void => {
         router.visit(path);
@@ -487,7 +488,7 @@ const Chat: React.FC = () => {
                             <input
                                 type="text"
                                 placeholder="Search contacts..."
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] focus:border-transparent"
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
@@ -583,17 +584,7 @@ const Chat: React.FC = () => {
                                 </p>
                             </div>
                         </div>
-                        <div className="flex space-x-2">
-                            <button className="p-2 rounded-full hover:bg-gray-200 transition-colors">
-                                <Phone className="w-5 h-5 text-gray-600" />
-                            </button>
-                            <button className="p-2 rounded-full hover:bg-gray-200 transition-colors">
-                                <Video className="w-5 h-5 text-gray-600" />
-                            </button>
-                            <button className="p-2 rounded-full hover:bg-gray-200 transition-colors">
-                                <MoreVertical className="w-5 h-5 text-gray-600" />
-                            </button>
-                        </div>
+                        
                     </div>
 
                     {/* Messages Area */}
@@ -660,9 +651,24 @@ const Chat: React.FC = () => {
                     {/* Message Input */}
                     <div className="p-4 border-t border-gray-200 bg-white">
                         <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        const file = e.target.files[0];
+                                        // Handle the file attachment here
+                                        console.log('File selected:', file.name);
+                                        // You can implement file upload logic here
+                                    }
+                                }}
+                                className="hidden"
+                                accept="image/*,.pdf,.doc,.docx"
+                            />
                             <button
                                 type="button"
                                 className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                                onClick={() => fileInputRef.current?.click()}
                             >
                                 <Paperclip className="w-5 h-5 text-gray-600" />
                             </button>
@@ -670,7 +676,7 @@ const Chat: React.FC = () => {
                                 <input
                                     type="text"
                                     placeholder="Type a message..."
-                                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#A3386C] focus:border-transparent"
+                                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black"
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     onKeyDown={(e) => {

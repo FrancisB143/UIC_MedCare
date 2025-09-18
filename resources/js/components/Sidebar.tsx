@@ -12,7 +12,8 @@ import {
     Users,
     ChevronDown,
     User,
-    LogOut
+    LogOut,
+    MessageSquare
 } from 'lucide-react';
 import LogoutModal from './LogoutModal';
 
@@ -171,6 +172,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                         >
                             <ShieldQuestion className="w-5 h-5 text-white flex-shrink-0" />
                             {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">About</p>}
+                        </div>
+
+                        {/* Chat */}
+                        <div
+                            className={`flex items-center px-4 py-3 rounded-lg cursor-pointer ${activeMenu === 'chat' ? 'bg-[#77536A]' : 'hover:bg-[#77536A]'}`}
+                            onClick={() => handleNavigation('/Chat')}
+                        >
+                            <MessageSquare className="w-5 h-5 text-white flex-shrink-0" />
+                            {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">Chat</p>}
                         </div>
                     </div>
                 </nav>

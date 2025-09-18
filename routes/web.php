@@ -40,6 +40,7 @@ Route::get('/Reports', fn() => Inertia::render('Reports'));
 Route::get('/Print', fn() => Inertia::render('Print'));
 Route::get('/About', fn() => Inertia::render('About'));
 Route::get('/Notification', fn() => Inertia::render('Notification'));
+Route::get('/Chat', fn() => Inertia::render('Chat'));
 
 // HSMS Consultation Routes
 Route::get('/consultation/student/{id}', fn($id) => Inertia::render('Consultation/StudentProfile', ['id' => $id]));
