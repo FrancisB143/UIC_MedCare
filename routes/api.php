@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\Api\MedicineController;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,6 +34,7 @@ Route::get('/medicines', [UserController::class, 'getAllMedicines']);
 Route::post('/medicines', [UserController::class, 'createMedicine']);
 Route::post('/medicines/delete', [UserController::class, 'deleteMedicine']);
 Route::post('/medicine-stock-in', [UserController::class, 'addMedicineStockIn']);
+Route::get('/medicines/stock-out', [MedicineController::class, 'stockOut']);
 Route::get('/medicine-stock-records/{medicineId}/{branchId}', [UserController::class, 'getAvailableStockRecords']);
 Route::post('/medicine-dispense', [UserController::class, 'dispenseMedicine']);
 Route::post('/dispense', [UserController::class, 'dispenseMedicine']);
