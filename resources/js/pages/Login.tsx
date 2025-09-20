@@ -75,9 +75,9 @@ export default function Login() {
               alt="UIC logo"
               src="/images/Logo.png"
             />
-            <h1 className="italic text-white text-[50px] text-center">MEDITRACK</h1>
-            <h2 className="font-extrabold text-white text-3xl tracking-[0] leading-normal mt-3 mb-8 text-center">
-              MEDICINE INVENTORY SYSTEM
+            <h1 className="italic font-bold text-white text-[50px] text-center">UIC MEDICARE</h1>
+            <h2 className="text-white text-3xl tracking-[0] leading-normal mt-3 mb-8 text-center">
+              Health Services & Inventory Management System
             </h2>
             
             {/* Display loading or error states */}

@@ -181,7 +181,7 @@ const Reports: React.FC = () => {
                                                 </g>
                                             );
                                         })}
-                                    </svg>
+                                    </svg>  
                                 </div>
                                 <div className="flex flex-wrap gap-x-6 gap-y-3">
                                     {chartData.map((item, index) => (
