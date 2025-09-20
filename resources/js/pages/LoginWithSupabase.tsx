@@ -28,7 +28,8 @@ export default function LoginWithSupabase() {
       const { data, error } = await signIn(email, password);
       
       if (error) {
-        throw new Error(error.message);
+  const errMsg = (error && (error as any).message) ? (error as any).message : 'Login failed';
+  throw new Error(errMsg);
       }
 
       if (data.user) {

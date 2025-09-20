@@ -9,22 +9,27 @@ export function useSupabaseAuth() {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then((res: any) => {
+      const session = res?.data?.session ?? null;
       setSession(session)
-      setUser(session?.user ?? null)
+      setUser((session as any)?.user ?? null)
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const subscriptionResult: any = supabase.auth.onAuthStateChange((_: any, session: any) => {
       setSession(session)
-      setUser(session?.user ?? null)
+      setUser((session as any)?.user ?? null)
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    // Unsubscribe if available
+    try {
+      const subscription = subscriptionResult?.data?.subscription ?? subscriptionResult?.subscription ?? null;
+      return () => subscription?.unsubscribe && subscription.unsubscribe()
+    } catch {
+      return () => {}
+    }
   }, [])
 
   // Sign in with email and password

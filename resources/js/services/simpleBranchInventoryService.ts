@@ -132,7 +132,7 @@ export class BranchInventoryService {
 
             const summary: { [key: string]: BranchStockSummary } = {};
             
-            data?.forEach(item => {
+            data?.forEach((item: any) => {
                 const key = `${item.branch_id}-${item.medicine_id}`;
                 const branchData = Array.isArray(item.branch) ? item.branch[0] : item.branch;
                 const medicineData = Array.isArray(item.medicine) ? item.medicine[0] : item.medicine;
@@ -281,7 +281,7 @@ export class BranchInventoryService {
 
             if (error) throw error;
 
-            return data?.map(item => {
+            return data?.map((item: any) => {
                 const branchData = Array.isArray(item.branch) ? item.branch[0] : item.branch;
                 const medicineData = Array.isArray(item.medicine) ? item.medicine[0] : item.medicine;
                 const reorderData = Array.isArray(item.medicine_reorder_levels) ? item.medicine_reorder_levels[0] : item.medicine_reorder_levels;
@@ -296,7 +296,7 @@ export class BranchInventoryService {
                     low_stock_level: reorderData?.minimum_stock_level || 50,
                     is_low_stock: item.quantity <= (reorderData?.minimum_stock_level || 50)
                 };
-            }).filter(item => item.is_low_stock) || [];
+            }).filter((item: any) => item.is_low_stock) || [];
 
         } catch (error) {
             console.error('Error fetching low stock medicines:', error);

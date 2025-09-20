@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard,
     Search,
@@ -10,6 +10,7 @@ import {
     GraduationCap,
     Briefcase,
     Users,
+        MessageSquare,
     ChevronDown,
     User,
     LogOut
@@ -41,9 +42,38 @@ const Sidebar: React.FC<SidebarProps> = ({
     const [isLogoutModalOpen, setLogoutModalOpen] = useState(false);
     const currentUser = UserService.getCurrentUser();
 
+    // derive current path to auto-open the Search submenu and highlight child
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    const activeSearchChild = currentPath.startsWith('/search/student') ? 'student' : currentPath.startsWith('/search/employee') ? 'employee' : null;
+
+    useEffect(() => {
+        // If the user is on any /search/* route, ensure the Search submenu is open
+        if (currentPath.startsWith('/search') && !isSearchOpen) {
+            setSearchOpen(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPath]);
+
     const handleLogoutConfirm = () => {
+        // Clear client-side session storage
         UserService.clearUserSession();
-        handleLogout();
+
+        // Attempt server-side logout then redirect to login page.
+        // Use fetch so we can trigger a full page redirect after logout.
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        fetch('/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify({})
+        }).finally(() => {
+            // Ensure we land on the login page regardless of the response
+            window.location.href = '/';
+        });
     };
 
     return (
@@ -102,27 +132,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                             >
                                 {isSidebarOpen && (
                                     <div className="mt-1 space-y-1 pl-8">
-                                        <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => {
+                                        <div className={`flex items-center p-2 rounded-lg cursor-pointer ${activeMenu === 'search' && activeSearchChild === 'student' ? 'bg-[#77536A]' : 'hover:bg-[#77536A]'}`} onClick={() => {
                                             console.log('🎓 Student clicked in sidebar');
                                             handleNavigation('/search/student');
                                         }}>
                                             <GraduationCap className="w-5 h-5 text-white flex-shrink-0" />
                                             <p className="text-sm text-white ml-3 whitespace-nowrap">Student</p>
                                         </div>
-                                        <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => {
+                                        <div className={`flex items-center p-2 rounded-lg cursor-pointer ${activeMenu === 'search' && activeSearchChild === 'employee' ? 'bg-[#77536A]' : 'hover:bg-[#77536A]'}`} onClick={() => {
                                             console.log('💼 Employee clicked in sidebar');
                                             handleNavigation('/search/employee');
                                         }}>
                                             <Briefcase className="w-5 h-5 text-white flex-shrink-0" />
                                             <p className="text-sm text-white ml-3 whitespace-nowrap">Employee</p>
                                         </div>
-                                        <div className="flex items-center p-2 hover:bg-[#77536A] rounded-lg cursor-pointer" onClick={() => {
-                                            console.log('👥 Community clicked in sidebar');
-                                            handleNavigation('/search/community');
-                                        }}>
-                                            <Users className="w-5 h-5 text-white flex-shrink-0" />
-                                            <p className="text-sm text-white ml-3 whitespace-nowrap">Community</p>
-                                        </div>
+                                        {/* Community removed per request */}
                                     </div>
                                 )}
                             </div>
@@ -207,6 +231,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                         >
                             <ShieldQuestion className="w-5 h-5 text-white flex-shrink-0" />
                             {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">About</p>}
+                        </div>
+
+                        {/* Chat */}
+                        <div
+                            className={`flex items-center px-4 py-3 rounded-lg cursor-pointer ${activeMenu === 'chat' ? 'bg-[#77536A]' : 'hover:bg-[#77536A]'}`}
+                            onClick={() => {
+                                console.log('💬 Chat clicked in sidebar');
+                                handleNavigation('/Chat');
+                            }}
+                        >
+                            <MessageSquare className="w-5 h-5 text-white flex-shrink-0" />
+                            {isSidebarOpen && <p className="text-sm text-white ml-3 whitespace-nowrap">Chat</p>}
                         </div>
                     </div>
                 </nav>

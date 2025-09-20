@@ -3,24 +3,95 @@
 
 console.warn('⚠️  Supabase client disabled - using MSSQL database instead');
 
+// Minimal chainable query builder mock to resemble Supabase client's fluent API
+function createQueryBuilder(): any {
+  const qb: any = {
+    _table: null,
+    _select: '*',
+    _filters: [] as any[],
+    _order: null as any,
+    _limit: null as any,
+    from(table?: string) {
+      qb._table = table;
+      return qb;
+    },
+    select(cols?: string) {
+      qb._select = cols ?? '*';
+      return qb;
+    },
+    insert(_payload?: any) {
+      qb._op = 'insert';
+      qb._payload = _payload;
+      return qb;
+    },
+    update(_payload?: any) {
+      qb._op = 'update';
+      qb._payload = _payload;
+      return qb;
+    },
+    delete() {
+      qb._op = 'delete';
+      return qb;
+    },
+    upsert(_payload?: any) {
+      qb._op = 'upsert';
+      qb._payload = _payload;
+      return qb;
+    },
+    eq(_col: string, _val: any) {
+      qb._filters.push({ type: 'eq', col: _col, val: _val });
+      return qb;
+    },
+    order(col: string, opts?: any) {
+      qb._order = { col, opts };
+      return qb;
+    },
+    limit(n: number) {
+      qb._limit = n;
+      return qb;
+    },
+    single() {
+      qb._single = true;
+      return qb;
+    },
+    then(resolve: any) {
+      // Resolve with a shape similar to Supabase responses
+      const response = { data: [], error: null };
+      return Promise.resolve(response).then(resolve);
+    },
+    catch(reject: any) {
+      // allow catch chaining
+      return Promise.resolve({ data: [], error: null }).catch(reject);
+    },
+  };
+
+  return qb;
+}
+
 // Mock Supabase client to prevent initialization errors
 export const supabase = {
-  from: () => ({
-    select: () => Promise.resolve({ data: [], error: null }),
-    insert: () => Promise.resolve({ data: [], error: null }),
-    update: () => Promise.resolve({ data: [], error: null }),
-    delete: () => Promise.resolve({ data: [], error: null }),
-    upsert: () => Promise.resolve({ data: [], error: null }),
-  }),
+  from: (table?: string) => createQueryBuilder().from(table),
   auth: {
-    getUser: () => Promise.resolve({ data: { user: null }, error: null }),
-    signInWithPassword: () => Promise.resolve({ data: { user: null }, error: null }),
-    signOut: () => Promise.resolve({ error: null }),
+    // Provide a minimal getSession compatible with newer supabase-js
+    getSession: async () => ({ data: { session: null }, error: null }),
+    // getUser remains available for older code
+    getUser: async () => ({ data: { user: null }, error: null }),
+    // onAuthStateChange: call the callback immediately and return a subscription-like object
+    onAuthStateChange: (cb: any) => {
+      const subscription = { unsubscribe: () => {} };
+      // call callback with nulls to emulate signed-out state
+      try { cb(null, null); } catch (e) { /**/ }
+      return { data: { subscription } };
+    },
+    // signInWithPassword/signUp/signOut - accept parameters but return a compatible shape
+    signInWithPassword: async (_creds?: any) => ({ data: { user: null }, error: null }),
+    signUp: async (_creds?: any) => ({ data: { user: null }, error: null }),
+    signOut: async () => ({ error: null }),
   },
   storage: {
-    from: () => ({
-      upload: () => Promise.resolve({ data: null, error: null }),
-      download: () => Promise.resolve({ data: null, error: null }),
+    from: (_bucket?: string) => ({
+      upload: async () => ({ data: null, error: null }),
+      download: async () => ({ data: null, error: null }),
     }),
   },
 };
