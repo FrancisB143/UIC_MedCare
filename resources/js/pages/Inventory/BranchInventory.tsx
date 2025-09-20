@@ -68,6 +68,7 @@ const BranchInventoryPage: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [newlyAddedRecordId, setNewlyAddedRecordId] = useState<number | null>(null);
     const [lowStockMedicines, setLowStockMedicines] = useState<any[]>([]);
+    const [selectedGroupForDispense, setSelectedGroupForDispense] = useState<any | null>(null);
 
     const notifications: NotificationType[] = [
         { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
@@ -340,89 +341,34 @@ const BranchInventoryPage: React.FC = () => {
         setDispenseModalOpen(true);
     };
 
-    const handleConfirmDispense = async (quantity: number) => {
-        if (medicineToDispense && branchInfo && currentUser) {
-            try {
-                const currentQuantity = medicineToDispense.quantity || 0;
-                const newQuantity = currentQuantity - quantity;
+    const handleConfirmDispense = async (medicineStockInId: number, quantity: number) => {
+        if (!branchInfo || !currentUser) {
+            Swal.fire({ icon: 'error', title: 'Missing Data', text: 'User or branch information is missing.' });
+            return;
+        }
+        try {
+            // Use the new stock out system for the specific batch
+            const result = await BranchInventoryService.dispenseMedicineStockOut({
+                medicineStockInId: medicineStockInId,
+                quantity: quantity,
+                dispensedBy: currentUser.user_id,
+                branchId: branchInfo.branch_id
+            });
 
-                console.log(`Dispensing ${quantity} of ${medicineToDispense.medicine?.medicine_name}. Current: ${currentQuantity}, New: ${newQuantity}`);
-
-                if (newQuantity < 0) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Invalid Quantity',
-                        text: 'Cannot dispense more than available quantity',
-                        confirmButtonText: 'OK'
-                    });
-                    return;
-                }
-
-                // Use the new stock out system
-                const result = await BranchInventoryService.dispenseMedicineStockOut({
-                    medicineStockInId: medicineToDispense.medicine_stock_in_id,
-                    quantity: quantity,
-                    dispensedBy: currentUser.user_id,
-                    branchId: branchInfo.branch_id
-                });
-
-                if (!result || !result.success) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Dispense Failed',
-                        text: 'Failed to dispense medicine. Please try again.',
-                        confirmButtonText: 'OK'
-                    });
-                    return;
-                }
-
-                console.log('Successfully dispensed medicine using stock out system');
-                
-                // History logging is now handled by database triggers
-                // No need for manual logging here
-                
-                // Show success message
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Medicine Dispensed Successfully!',
-                    text: `${quantity} units of ${medicineToDispense.medicine?.medicine_name} have been dispensed.`,
-                    confirmButtonText: 'OK',
-                    timer: 3000,
-                    timerProgressBar: true
-                });
-
-                setMedicineToDispense(null);
-                // Reload data after dispensing
-                await loadInventoryData();
-                
-                // Check if the remaining quantity is 50 or below and trigger notification
-                if (newQuantity <= 50 && newQuantity > 0) {
-                    // Create a low stock notification
-                    NotificationService.createNotification(
-                        `Low Stock Alert: ${medicineToDispense.medicine?.medicine_name || 'Medicine'} has only ${newQuantity} units remaining`,
-                        'warning'
-                    );
-                    
-                    console.log(`Low stock notification created for: ${medicineToDispense.medicine?.medicine_name}`);
-                }
-            } catch (error) {
-                console.error('Unexpected error during dispensing:', error);
-                
-                // Show more detailed error message
-                let errorMessage = 'An unexpected error occurred. ';
-                if (error instanceof Error) {
-                    errorMessage += error.message;
-                } else {
-                    errorMessage += 'Please try again.';
-                }
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Dispense Failed',
-                    text: errorMessage,
-                    confirmButtonText: 'OK'
-                });
+            if (!result || !result.success) {
+                Swal.fire({ icon: 'error', title: 'Dispense Failed', text: 'Failed to dispense medicine. Please try again.' });
+                return;
             }
+
+            Swal.fire({ icon: 'success', title: 'Medicine Dispensed Successfully!', text: `${quantity} units dispensed.`, timer: 2500, showConfirmButton: false });
+            setSelectedGroupForDispense(null);
+            setDispenseModalOpen(false);
+            await loadInventoryData();
+        } catch (error) {
+            console.error('Unexpected error during dispensing:', error);
+            let errorMessage = 'An unexpected error occurred.';
+            if (error instanceof Error) errorMessage = error.message;
+            Swal.fire({ icon: 'error', title: 'Dispense Failed', text: errorMessage });
         }
     };
     
@@ -629,6 +575,32 @@ const BranchInventoryPage: React.FC = () => {
         return filtered;
     };
 
+    // Group inventory records by medicine name to merge duplicates in the table
+    const getGroupedInventory = () => {
+        const filtered = getFilteredStockRecords();
+        const groups: Record<string, any> = {};
+        for (const rec of filtered) {
+            const name = rec.medicine?.medicine_name || 'Unknown';
+            if (!groups[name]) {
+                groups[name] = {
+                    medicine_name: name,
+                    medicine_category: rec.medicine?.medicine_category || 'No Category',
+                    total_quantity: 0,
+                    batches: [] as any[],
+                    representative: rec
+                };
+            }
+            groups[name].total_quantity += rec.quantity || 0;
+            groups[name].batches.push({
+                medicine_stock_in_id: rec.medicine_stock_in_id,
+                expiration_date: rec.expiration_date,
+                date_received: rec.date_received,
+                quantity: rec.quantity || 0
+            });
+        }
+        return Object.values(groups);
+    };
+
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
     if (!branchInfo) {
@@ -658,6 +630,7 @@ const BranchInventoryPage: React.FC = () => {
                 isOpen={isAddMedicineModalOpen}
                 setIsOpen={setAddMedicineModalOpen}
                 onAddMedicine={handleAddMedicineSubmit}
+                medicineOptions={medicines.map(m => m.medicine_name)}
                 branchName={branchInfo?.branch_name}
             />
             <RemovalReasonModal
@@ -668,14 +641,18 @@ const BranchInventoryPage: React.FC = () => {
                 medicineName={medicineToDelete?.medicine?.medicine_name}
                 medicineCategory={medicineToDelete?.medicine?.medicine_category}
             />
-            {medicineToDispense && (
+            {selectedGroupForDispense && (
                 <DispenseMedicineModal
                     isOpen={isDispenseModalOpen}
                     setIsOpen={setDispenseModalOpen}
-                    onSubmit={handleConfirmDispense}
-                    currentStock={medicineToDispense.quantity || 0}
-                    medicineName={medicineToDispense.medicine?.medicine_name || 'Unknown Medicine'}
-                    medicineCategory={medicineToDispense.medicine?.medicine_category || 'No Category'}
+                    onSubmit={async (medicineStockInId: number, qty: number) => {
+                        // delegate to existing handler which we'll adapt below
+                        await handleConfirmDispense(medicineStockInId, qty);
+                    }}
+                    currentStock={selectedGroupForDispense.total_quantity || 0}
+                    medicineName={selectedGroupForDispense.medicine_name || 'Unknown Medicine'}
+                    medicineCategory={selectedGroupForDispense.medicine_category || 'No Category'}
+                    batches={selectedGroupForDispense.batches}
                 />
             )}
             {medicineToReorder && (
@@ -748,8 +725,6 @@ const BranchInventoryPage: React.FC = () => {
                                     <tr>
                                         <th className="px-6 py-4 text-left font-bold">MEDICINE NAME</th>
                                         <th className="px-6 py-4 text-left font-bold">CATEGORY</th>
-                                        <th className="px-6 py-4 text-left font-bold">DATE RECEIVED</th>
-                                        <th className="px-6 py-4 text-left font-bold">EXPIRATION DATE</th>
                                         <th className="px-6 py-4 text-left font-bold">QUANTITY</th>
                                         <th className="px-6 py-4 text-center font-bold">ACTIONS</th>
                                     </tr>
@@ -757,13 +732,13 @@ const BranchInventoryPage: React.FC = () => {
                                 <tbody className="divide-y divide-gray-200">
                                     {isLoading ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                                            <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                                                 Loading...
                                             </td>
                                         </tr>
                                     ) : getFilteredStockRecords().length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                                            <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                                                 {branchInventory.length === 0 
                                                     ? 'No medicines in inventory yet. Click "ADD MEDICINE" to add your first medicine.' 
                                                     : `No medicines found matching "${searchTerm}". Total medicines in inventory: ${branchInventory.length}`
@@ -771,50 +746,44 @@ const BranchInventoryPage: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        getFilteredStockRecords().map((record) => (
+                                        getGroupedInventory().map((group: any, idx: number) => (
                                             <tr 
-                                                key={record.medicine_id} 
+                                                key={`${group.medicine_name}-${idx}`} 
                                                 className={`hover:bg-gray-50 transition-colors duration-300 ${
-                                                    newlyAddedRecordId === record.medicine_id 
+                                                    newlyAddedRecordId === group.representative?.medicine_id 
                                                         ? 'bg-green-50 border-green-200' 
                                                         : ''
                                                 }`}
                                             >
                                                 <td className="px-6 py-4">
                                                     <div className="text-gray-900 font-medium">
-                                                        {record.medicine?.medicine_name || 'Unknown'}
+                                                        {group.medicine_name}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-gray-900">
-                                                    {record.medicine?.medicine_category || 'No Category'}
-                                                </td>
-                                                <td className="px-6 py-4 text-gray-900">
-                                                    {record.date_received ? new Date(record.date_received).toLocaleDateString() : 'Not Set'}
-                                                </td>
-                                                <td className="px-6 py-4 text-gray-900">
-                                                    {record.expiration_date ? new Date(record.expiration_date).toLocaleDateString() : 'Not Set'}
+                                                    {group.medicine_category}
                                                 </td>
                                                 <td className="px-6 py-4 text-gray-900 font-medium">
-                                                    {record.quantity || 0}
+                                                    {group.total_quantity || 0}
                                                 </td>
                                                 <td className="px-3 py-4">
                                                     <div className="flex items-center justify-center space-x-2">
                                                         <button 
-                                                            onClick={() => handleOpenDispenseModal(record)} 
+                                                            onClick={() => { setSelectedGroupForDispense(group); setDispenseModalOpen(true); }} 
                                                             className="bg-red-200 text-red-800 hover:bg-red-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors" 
                                                             title="Dispense Medicine"
                                                         >
                                                             -
                                                         </button>
                                                         <button 
-                                                            onClick={() => handleOpenReorderModal(record)} 
+                                                            onClick={() => { setMedicineToReorder(group.representative); setReorderModalOpen(true); }} 
                                                             className="bg-green-200 text-green-800 hover:bg-green-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors" 
                                                             title="Reorder/Add Stock"
                                                         >
                                                             +
                                                         </button>
                                                         <button 
-                                                            onClick={() => handleOpenRemovalModal(record)} 
+                                                            onClick={() => { setMedicineToDelete(group.representative); setRemovalModalOpen(true); }} 
                                                             className="text-gray-500 hover:text-red-600 p-1 transition-colors" 
                                                             title="Delete"
                                                         >

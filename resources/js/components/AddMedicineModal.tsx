@@ -7,6 +7,7 @@ interface AddMedicineModalProps {
     setIsOpen: (isOpen: boolean) => void;
     onAddMedicine: (medicineData: MedicineFormData) => void;
     branchName?: string;
+    medicineOptions?: string[]; // list of existing medicine names for the datalist
 }
 
 interface MedicineFormData {
@@ -29,7 +30,8 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     isOpen,
     setIsOpen,
     onAddMedicine,
-    branchName
+    branchName,
+    medicineOptions = []
 }) => {
     const [formData, setFormData] = useState<MedicineFormData>(initialFormData);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -154,13 +156,19 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                                     {/* Medicine Name */}
                                     <div>
                                         <label className="block text-gray-700 text-xs font-medium mb-1 uppercase tracking-wider">Medicine Name</label>
+                                        {/* Typable select using datalist so user can type or pick existing medicines */}
                                         <input
-                                            type="text"
+                                            list="medicine-options"
                                             value={formData.medicineName}
                                             onChange={(e) => handleInputChange('medicineName', e.target.value)}
                                             className={`w-full px-3 py-2 border-0 border-b-2 ${errors.medicineName ? 'border-red-500' : 'border-gray-300 focus:border-[#A3386C]'} bg-transparent focus:outline-none transition-colors text-black text-sm`}
-                                            placeholder="Enter medicine name"
+                                            placeholder="Enter or select medicine name"
                                         />
+                                        <datalist id="medicine-options">
+                                            {medicineOptions.map((m) => (
+                                                <option key={m} value={m} />
+                                            ))}
+                                        </datalist>
                                         {errors.medicineName && <p className="text-red-500 text-xs mt-1">{errors.medicineName}</p>}
                                     </div>
                                     {/* Category */}
