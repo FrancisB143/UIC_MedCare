@@ -17,24 +17,32 @@ class MedicineController extends Controller
     {
         try {
             // Attempt to join the stock-out -> stock-in -> medicines tables.
-            // Adjust column names if your schema differs.
-            $rows = DB::table('medicine_stock_out as mso')
+            // Optional filter by user_id (show only stock-outs performed by a specific user)
+            $userId = $request->query('user_id');
+
+            $query = DB::table('medicine_stock_out as mso')
                 ->join('medicine_stock_in as msi', 'msi.medicine_stock_in_id', '=', 'mso.medicine_stock_in_id')
                 ->leftJoin('medicines as m', 'm.medicine_id', '=', 'msi.medicine_id')
                 ->select(
                     DB::raw("COALESCE(m.medicine_name, CONCAT('Medicine #', msi.medicine_id)) as name"),
                     DB::raw('SUM(mso.quantity_dispensed) as medicine_stock_out'),
-                    DB::raw('m.medicine_category as category'),
+                    DB::raw('NULL as category'),
                     DB::raw('NULL as color')
-                )
-                ->groupBy(DB::raw("COALESCE(m.medicine_name, CONCAT('Medicine #', msi.medicine_id))"), 'm.medicine_category')
+                );
+
+            if ($userId) {
+                $query->where('mso.user_id', $userId);
+            }
+
+            $rows = $query
+                ->groupBy(DB::raw("COALESCE(m.medicine_name, CONCAT('Medicine #', msi.medicine_id))"))
                 ->orderByDesc('medicine_stock_out')
                 ->get()
                 ->map(function ($r) {
                     return [
                         'name' => $r->name,
                         'medicine_stock_out' => (int) $r->medicine_stock_out,
-                        'category' => $r->category,
+                        'category' => null,
                         'color' => null,
                     ];
                 })

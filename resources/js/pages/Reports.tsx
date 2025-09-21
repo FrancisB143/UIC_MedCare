@@ -1,25 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import { router } from '@inertiajs/react';
+import { UserService } from '../services/userService';
 import { Menu, Printer } from 'lucide-react';
 import NotificationBell, { Notification as NotificationType } from '../components/NotificationBell';
+import { BranchInventoryService } from '../services/branchInventoryService';
 import Sidebar from '../components/Sidebar';
 
 // Add print-specific styles to the head
 const printStyles = `
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  #printable-area, #printable-area * {
-    visibility: visible;
-  }
-  #printable-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-  }
+    /* Hide everything by default, reveal printable area */
+    body * { visibility: hidden; }
+    #printable-area, #printable-area * { visibility: visible; }
+    #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+
+    /* Hide the right-side 'Commonly Used Medicine' card and let the chart use full width */
+    .print-hide-right { display: none !important; }
+    /* Prefer Letter (bondpaper) sizing but keep portrait fallback; reduce margins slightly for more room */
+    @page { size: Letter portrait; margin: 12mm; }
+    /* Keep a fallback for A4 if the printer uses that */
+    @page :left { size: A4 portrait; margin: 20mm; }
+
+    #printable-area { box-sizing: border-box; padding: 0; margin: 0; }
+    /* Limit chart height to printable area minus header/footer to avoid overflow; slightly looser so labels fit */
+    .print-expand-chart .h-72 { max-height: calc(100vh - 160px) !important; height: auto !important; }
+    /* Ensure the chart container scales contents to fit */
+    .print-expand-chart .recharts-wrapper { max-height: calc(100vh - 180px) !important; }
+    /* Add additional right padding so chart doesn't touch the page edge on print (a bit more breathing room) */
+    .print-expand-chart { padding-right: 25mm !important; }
 }
 `;
 
@@ -80,12 +89,14 @@ const Reports: React.FC = () => {
 
     useEffect(() => {
         // fetch medicines stock-out data from backend
-        const fetchData = async () => {
+    const fetchData = async () => {
             setLoadingChart(true);
             try {
-                const url = `${window.location.origin}/api/medicines/stock-out`;
-                console.debug('Fetching medicine stock-out from', url);
-                const res = await fetch(url, { credentials: 'same-origin' });
+        const currentUser = UserService.getCurrentUser();
+        const params = currentUser ? `?user_id=${currentUser.user_id}` : '';
+        const url = `${window.location.origin}/api/medicines/stock-out${params}`;
+        console.debug('Fetching medicine stock-out from', url);
+        const res = await fetch(url, { credentials: 'same-origin' });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
                 console.debug('Received chart data', data);
@@ -94,7 +105,7 @@ const Reports: React.FC = () => {
                     name: d.name,
                     medicine_stock_out: Number(d.medicine_stock_out) || 0,
                     color: d.color || colorPalette[i % colorPalette.length],
-                    category: d.category || d.medicine_category || d.medicineCategory || 'Uncategorized'
+                    category: d.category || d.medicine_category || d.medicineCategory || null
                 }));
 
                 const totalCount = raw.reduce((s: number, r: MedicineData) => s + r.medicine_stock_out, 0);
@@ -112,6 +123,16 @@ const Reports: React.FC = () => {
                     }
                     withPercents = raw.map((r: MedicineData, idx: number) => ({ ...r as any, percent: percents[idx], medicine_stock_out: r.medicine_stock_out }));
                 }
+                // Fill missing categories from canonical medicines list
+                try {
+                    const meds = await BranchInventoryService.getAllMedicines();
+                    const map = new Map<string, string>();
+                    meds.forEach((m: any) => map.set((m.medicine_name || '').toString().toLowerCase(), m.medicine_category || m.category || 'Uncategorized'));
+                    withPercents = withPercents.map((r: any) => ({ ...r, category: r.category || map.get((r.name || '').toString().toLowerCase()) || 'Uncategorized' }));
+                } catch (e) {
+                    // ignore and leave categories as-is
+                }
+
                 setTotalDispensed(totalCount);
                 setChartData(withPercents as any);
             } catch (err) {
@@ -169,7 +190,7 @@ const Reports: React.FC = () => {
                                 <div className="mb-6">
                                     <p className="text-sm text-gray-500 mb-2">Used Medicine (Stock-Out)</p>
                                 </div>
-                                    <div className="h-72 mb-6 relative">
+                                    <div className="h-72 mb-6 relative print-expand-chart">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
                                                 <CartesianGrid strokeDasharray="3 3" />
@@ -195,33 +216,31 @@ const Reports: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        <div className="lg:col-span-1 print:hidden">
-                            <div className="bg-white border border-gray-200 rounded-lg p-6 h-full">
+                        <div className="lg:col-span-1 print-hide-right">
+                            <div className="bg-white border border-gray-200 rounded-lg p-6 h-full print-hidden">
                                 <h3 className="text-xl font-normal text-black mb-6">Commonly Used Medicine</h3>
                                 <div className="mb-4">
                                     <p className="text-sm text-gray-500">Products</p>
                                 </div>
-                                <div className="mb-6">
-                                    <p className="text-sm text-gray-500 mb-2">Used Medicine (Stock-Out)</p>
-                                </div>
+                                {/* removed the small 'Used Medicine (Stock-Out)' label here per request */}
 
                                 <div className="space-y-3">
                                     {chartData && chartData.length > 0 ? (
-                                        // top 5 by raw stock-out count; fallback to percent sorting if same
+                                        // top 8 by raw stock-out count; fallback to percent sorting if same
                                         chartData
                                             .slice()
-                                            .sort((a, b) => (b.medicine_stock_out - a.medicine_stock_out) || ((b.percent ?? 0) - (a.percent ?? 0)))
-                                            .slice(0, 5)
-                                            .map((m, idx) => (
+                                                .sort((a, b) => (b.medicine_stock_out - a.medicine_stock_out) || ((b.percent ?? 0) - (a.percent ?? 0)))
+                                                .slice(0, 8)
+                                                .map((m, idx) => (
                                                 <div key={idx} className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold" style={{ backgroundColor: m.color || colorPalette[idx % colorPalette.length] }}>
                                                         { (m.name || 'M').charAt(0) }
                                                     </div>
                                                     <div className="flex-1">
                                                         <div className="text-sm font-medium text-gray-900">{m.name}</div>
-                                                        <div className="text-xs text-gray-500">{m.category ?? 'Uncategorized'}</div>
+                                                            <div className="text-xs text-gray-500">{m.category ?? 'Uncategorized'}</div>
                                                     </div>
-                                                    <div className="text-sm font-medium text-gray-900">{m.percent ?? 0}%</div>
+                                                        <div className="text-sm font-medium text-gray-900">{m.medicine_stock_out ?? 0}</div>
                                                 </div>
                                             ))
                                     ) : (
