@@ -1,12 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { getMedicinesForBranch, Medicine } from '../data/branchMedicines';
+import type { BranchInventoryItem } from '../services/branchInventoryService';
+import { BranchInventoryService } from '../services/branchInventoryService';
 
 interface RequestMedicineModalProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   branchId: number;
+  medicineOptions?: BranchInventoryItem[]; // medicines available in the selected branch
   onRequest: (data: { medicineId: number; expirationDate: string; quantity: number }) => void;
 }
 
@@ -14,21 +16,39 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
   isOpen,
   setIsOpen,
   branchId,
+  medicineOptions = [],
   onRequest,
 }) => {
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [medicines, setMedicines] = useState<BranchInventoryItem[]>([]);
   const [selectedMedicineId, setSelectedMedicineId] = useState<number | null>(null);
   const [expirationDates, setExpirationDates] = useState<string[]>([]);
   const [selectedExpiration, setSelectedExpiration] = useState('');
+  const [dateReceivedOptions, setDateReceivedOptions] = useState<string[]>([]);
+  const [selectedDateReceived, setSelectedDateReceived] = useState('');
   const [maxQuantity, setMaxQuantity] = useState(0);
   const [quantity, setQuantity] = useState<number | ''>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
-      // Only show medicines with stock > 50
-      const meds = getMedicinesForBranch(branchId).filter(m => m.stock > 50);
+      // Use provided medicineOptions (filter to those with quantity > 50)
+      const meds = (medicineOptions || []).filter(m => Number(m.quantity ?? 0) > 50);
       setMedicines(meds);
+      // Also preload canonical medicines table for better name lookup
+      (async () => {
+        try {
+          const canonical = await BranchInventoryService.getAllMedicines();
+          const map = new Map<number, string>();
+          canonical.forEach((c: any) => map.set(Number(c.medicine_id || 0), String(c.medicine_name || c.name || '')));
+          // merge into current medicines by mapping names when unknown
+          setMedicines(prev => prev.map(p => ({
+            ...p,
+            medicine_name: p.medicine_name || map.get(Number(p.medicine_id || 0)) || p.medicine_name
+          })));
+        } catch (e) {
+          // ignore
+        }
+      })();
       setSelectedMedicineId(null);
       setExpirationDates([]);
       setSelectedExpiration('');
@@ -40,14 +60,22 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
 
   useEffect(() => {
     if (selectedMedicineId !== null) {
-  const med = medicines.find((m) => m.id === selectedMedicineId);
+      const med = medicines.find((m) => Number(m.medicine_id) === Number(selectedMedicineId));
       if (med) {
-        setExpirationDates([med.expiry]);
-        setSelectedExpiration(med.expiry);
-        setMaxQuantity(med.stock);
+        // Use expiration_date field when available
+        const exp = med.expiration_date || '';
+        setExpirationDates(exp ? [exp] : []);
+        setSelectedExpiration(exp || '');
+        // date received (may be empty)
+  const received = med.date_received || '';
+        setDateReceivedOptions(received ? [received] : []);
+        setSelectedDateReceived(received || '');
+        setMaxQuantity(Number(med.quantity ?? 0));
       } else {
         setExpirationDates([]);
         setSelectedExpiration('');
+        setDateReceivedOptions([]);
+        setSelectedDateReceived('');
         setMaxQuantity(0);
       }
       setQuantity('');
@@ -67,16 +95,30 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
   const handleConfirm = () => {
     if (!validate()) return;
     onRequest({
-      medicineId: selectedMedicineId!,
+      medicineId: Number(selectedMedicineId!),
       expirationDate: selectedExpiration,
       quantity: Number(quantity),
     });
     setIsOpen(false);
-    const med = medicines.find(m => m.id === selectedMedicineId);
-    // Success view removed as requested
+    // Reset form after successful request
+    resetForm();
   };
 
-  const handleClose = () => setIsOpen(false);
+  const resetForm = () => {
+    setSelectedMedicineId(null);
+    setExpirationDates([]);
+    setSelectedExpiration('');
+    setDateReceivedOptions([]);
+    setSelectedDateReceived('');
+    setMaxQuantity(0);
+    setQuantity('');
+    setErrors({});
+  };
+
+  const handleClose = () => {
+    resetForm();
+    setIsOpen(false);
+  };
 
   return (
     <div className={`${isOpen ? 'block' : 'hidden'}`}>
@@ -99,11 +141,30 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
                   onChange={e => setSelectedMedicineId(Number(e.target.value) || null)}
                 >
                   <option value="">Select medicine</option>
-                  {medicines.map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
+                  {(medicines || []).map((m: any) => {
+                    const id = Number(m.medicine_id || m.medicine_stock_in_id || 0);
+                    const name = String(m.medicine_name || 'Unknown');
+                    return (
+                      <option key={id || Math.random()} value={id} className="text-black" style={{ color: 'black' }}>{name}</option>
+                    );
+                  })}
                 </select>
                 {errors.medicine && <p className="text-red-500 text-xs mt-1">{errors.medicine}</p>}
+              </div>
+              <div>
+                <label className="font-semibold text-gray-700">Date Received</label>
+                <select
+                  className={`w-full mt-1 p-3 border ${errors.expiration ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black`}
+                  value={selectedDateReceived}
+                  onChange={e => setSelectedDateReceived(e.target.value)}
+                  disabled={dateReceivedOptions.length === 0}
+                >
+                  <option value="">Select date received</option>
+                  {dateReceivedOptions.map(date => (
+                    <option key={date} value={date} className="text-black" style={{ color: 'black' }}>{date}</option>
+                  ))}
+                </select>
+                {errors.expiration && <p className="text-red-500 text-xs mt-1">{errors.expiration}</p>}
               </div>
               <div>
                 <label className="font-semibold text-gray-700">Expiration Date</label>
@@ -115,7 +176,7 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
                 >
                   <option value="">Select expiration</option>
                   {expirationDates.map(date => (
-                    <option key={date} value={date}>{date}</option>
+                    <option key={date} value={date} className="text-black" style={{ color: 'black' }}>{date}</option>
                   ))}
                 </select>
                 {errors.expiration && <p className="text-red-500 text-xs mt-1">{errors.expiration}</p>}

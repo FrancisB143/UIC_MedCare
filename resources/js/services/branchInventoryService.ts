@@ -203,7 +203,23 @@ export class BranchInventoryService {
             }
 
             const data = await response.json();
-            return Array.isArray(data) ? data : [];
+            // Normalize common field names coming from MSSQL endpoints into BranchInventoryItem shape
+            const arr = Array.isArray(data) ? data : [];
+            const normalized: BranchInventoryItem[] = arr.map((row: any) => ({
+                medicine_stock_in_id: row.medicine_stock_in_id ?? row.stock_in_id ?? 0,
+                medicine_id: row.medicine_id ?? row.medicineId ?? row.medicine_id_fk ?? 0,
+                medicine_name: row.medicine_name ?? row.name ?? row.MedicineName ?? '',
+                category: row.category ?? row.medicine_category ?? row.MedicineCategory ?? '',
+                quantity: Number(row.quantity ?? row.remaining_stock ?? row.stock ?? 0),
+                lot_number: row.lot_number ?? row.lotNumber ?? row.lot_no ?? '',
+                expiration_date: row.expiration_date ?? row.expiry ?? row.expirationDate ?? '',
+                timestamp_dispensed: row.timestamp_dispensed ?? row.timestampDispensed ?? '',
+                date_received: row.date_received ?? row.dateReceived ?? row.last_activity_date ?? '',
+                user_id: row.user_id ?? row.added_by ?? 0,
+                medicine: row.medicine ?? undefined,
+            }));
+
+            return normalized;
         } catch (error) {
             console.error('Error fetching branch inventory:', error);
             return [];

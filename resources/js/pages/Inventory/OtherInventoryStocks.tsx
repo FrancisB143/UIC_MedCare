@@ -9,12 +9,9 @@ import {
     Search,
     Menu
 } from 'lucide-react';
-import { 
-    Medicine, 
-    ClinicBranch, 
-    getBranchById, 
-    getMedicinesForBranch as getBranchMedicines 
-} from '../../data/branchMedicines';
+import { BranchInventoryService } from '../../services/branchInventoryService';
+import { UserService } from '../../services/userService';
+import type { BranchInventoryItem } from '../../services/branchInventoryService';
 
 
 
@@ -35,9 +32,13 @@ const OtherBranchInventoryPage: React.FC = () => {
     // Define dateTime state
     type DateTimeData = { date: string; time: string };
     const [dateTime, setDateTime] = useState<DateTimeData>(() => getCurrentDateTime());
-    const [branch, setBranch] = useState<ClinicBranch | null>(null);
+    // Minimal branch shape for display
+    type SimpleBranch = { id: number; name: string; suffix?: string };
+    const [branch, setBranch] = useState<SimpleBranch | null>(null);
 
-    const [medicines, setMedicines] = useState<Medicine[]>([]);
+    const [medicines, setMedicines] = useState<BranchInventoryItem[]>([]);
+    const [inventoryLoading, setInventoryLoading] = useState(false);
+    const [inventoryError, setInventoryError] = useState<string | null>(null);
     // State to show request modal
     const [isRequestModalOpen, setRequestModalOpen] = useState(false);
 
@@ -49,17 +50,162 @@ const OtherBranchInventoryPage: React.FC = () => {
 
 
     useEffect(() => {
-        if (branchId) {
-            const branchData = getBranchById(branchId);
-            const branchMedicines = getBranchMedicines(branchId);
-            if (branchData) {
-                setBranch(branchData);
-                setMedicines(branchMedicines);
-            } else {
-                console.error(`Branch with ID ${branchId} not found`);
-                router.visit('/inventory/stocks');
+        const loadInventories = async () => {
+            if (!branchId) return;
+            setInventoryLoading(true);
+            setInventoryError(null);
+            try {
+                // Ensure user is logged in and has branch info
+                const currentUser = UserService.getCurrentUser();
+                if (!currentUser || !currentUser.branch_id) {
+                    // If no user session, redirect to login/home
+                    router.visit('/');
+                    return;
+                }
+
+                // Get other branch inventory from backend (MSSQL)
+                const otherInventory = await BranchInventoryService.getBranchInventory(branchId);
+
+                // Get current user's branch inventory from backend
+                const userInventory = await BranchInventoryService.getBranchInventory(currentUser.branch_id);
+
+                // Enrich other branch inventory rows with info from the user's branch (if any)
+                const userById = new Map<number, BranchInventoryItem>();
+                const userByName = new Map<string, BranchInventoryItem>();
+                userInventory.forEach(u => {
+                    const id = Number(u.medicine_id || 0);
+                    if (!Number.isNaN(id) && id > 0) userById.set(id, u);
+                    if (u.medicine_name) userByName.set(u.medicine_name.toString().toLowerCase(), u);
+                });
+
+
+                    // Helper: normalize medicine names to improve grouping (lowercase, remove punctuation, collapse spaces)
+                    const normalizeName = (s: string) => {
+                        if (!s) return '';
+                        try {
+                            return s.toString()
+                                .normalize('NFKC')
+                                .toLowerCase()
+                                .replace(/[^a-z0-9\s]/g, ' ') // remove punctuation
+                                .replace(/\s+/g, ' ') // collapse spaces
+                                .trim();
+                        } catch (e) {
+                            return s.toString().toLowerCase().trim();
+                        }
+                    };
+
+                    // Aggregate otherInventory rows primarily by normalized medicine name so same-name medicines merge,
+                    // fallback to id-based grouping when name is missing. Sum quantities, take latest date_received, earliest expiration_date.
+                    const agg = new Map<string, any>();
+                    otherInventory.forEach((row: any) => {
+                        const rawName = (row.medicine_name || row.name || '').toString();
+                        const normalized = normalizeName(rawName);
+                        const nameKey = normalized ? `name:${normalized}` : null;
+                        const id = Number(row.medicine_id || 0);
+                        const key = nameKey || `id:${id}`;
+
+                        const qty = Number(row.quantity ?? row.remaining_stock ?? 0);
+                        const dateReceived = row.date_received || row.dateReceived || '';
+                        const expiry = row.expiration_date || row.expirationDate || '';
+
+                        let entry = agg.get(key);
+                        if (!entry) {
+                            entry = {
+                                medicine_ids: new Set<number>(),
+                                medicine_id: id > 0 ? id : 0,
+                                medicine_name: rawName || row.medicine_name || '',
+                                categories: new Set<string>(),
+                                category: row.category || row.medicine_category || '',
+                                quantity: qty,
+                                date_received: dateReceived,
+                                expiration_date: expiry,
+                            };
+                            const cat = (row.category || row.medicine_category || '').toString().trim();
+                            if (cat) entry.categories.add(cat);
+                            if (id > 0) entry.medicine_ids.add(id);
+                            agg.set(key, entry);
+                        } else {
+                            entry.quantity = Number(entry.quantity || 0) + qty;
+                            if (id > 0) entry.medicine_ids.add(id);
+                            // latest date_received
+                            if (dateReceived && (!entry.date_received || new Date(dateReceived) > new Date(entry.date_received))) {
+                                entry.date_received = dateReceived;
+                            }
+                            // earliest expiration_date
+                            if (expiry) {
+                                if (!entry.expiration_date) entry.expiration_date = expiry;
+                                else if (new Date(expiry) < new Date(entry.expiration_date)) entry.expiration_date = expiry;
+                            }
+                            // collect categories, even if different
+                            const cat = (row.category || row.medicine_category || '').toString().trim();
+                            if (cat) entry.categories.add(cat);
+                            // update displayed category: if multiple categories exist, mark as 'Multiple'
+                            if (entry.categories.size > 1) entry.category = 'Multiple';
+                            else if (entry.categories.size === 1) entry.category = Array.from(entry.categories)[0];
+                        }
+                    });
+
+                    const aggregated = Array.from(agg.values()).map((v: any) => ({
+                        medicine_stock_in_id: 0,
+                        // prefer a real id if available, otherwise 0
+                        medicine_id: v.medicine_id || (v.medicine_ids && Array.from(v.medicine_ids)[0]) || 0,
+                        medicine_name: v.medicine_name,
+                        category: v.category,
+                        quantity: v.quantity,
+                        lot_number: '',
+                        expiration_date: v.expiration_date,
+                        timestamp_dispensed: '',
+                        date_received: v.date_received,
+                        user_id: 0
+                    } as BranchInventoryItem));
+
+                    setMedicines(aggregated);
+
+                // Build sets of medicine ids and names the user has in their branch (coerce ids to Number)
+                const userMedicineIds = new Set<number>();
+                const userMedicineNames = new Set<string>();
+                userInventory.forEach(i => {
+                    const id = Number(i.medicine_id || i.medicine_id === 0 ? i.medicine_id : NaN);
+                    if (!Number.isNaN(id) && id > 0) userMedicineIds.add(id);
+                    if (i.medicine_name) userMedicineNames.add(i.medicine_name.toString().toLowerCase());
+                });
+
+                console.debug('OtherInventory count:', otherInventory.length, 'UserInventory count:', userInventory.length);
+                console.debug('User medicine ids sample:', Array.from(userMedicineIds).slice(0,10));
+                console.debug('User medicine names sample:', Array.from(userMedicineNames).slice(0,10));
+                // Clear inventoryError unless the other branch has no medicines
+                if (!otherInventory || otherInventory.length === 0) {
+                    setInventoryError('There are no medicines listed for the selected branch.');
+                } else {
+                    setInventoryError(null);
+                }
+
+                // Set branch basic info (name) if available from API payload or fallback
+                // Fetch branch metadata to display name (backend route exists)
+                try {
+                    const resp = await fetch(`/api/branches/${branchId}`, { method: 'GET' });
+                    if (resp.ok) {
+                        const branchData = await resp.json();
+                        // backend might return { branch_id, branch_name }
+                        const displayName = branchData.branch_name || branchData.name || branchData.branchName || `Branch ${branchId}`;
+                        setBranch({ id: branchId, name: displayName, suffix: '' });
+                    } else {
+                        setBranch({ id: branchId, name: `Branch ${branchId}`, suffix: '' });
+                    }
+                } catch (e) {
+                    setBranch({ id: branchId, name: `Branch ${branchId}`, suffix: '' });
+                }
+            } catch (err: any) {
+                console.error('Error loading inventories:', err);
+                setInventoryError(err?.message || 'Failed to load inventories from the server');
+                // fallback to route back
+                // router.visit('/inventory/stocks');
+            } finally {
+                setInventoryLoading(false);
             }
-        }
+        };
+
+        loadInventories();
     }, [branchId]);
 
     function getCurrentDateTime(): DateTimeData {
@@ -85,8 +231,8 @@ const OtherBranchInventoryPage: React.FC = () => {
 
     const handleBackToStocks = (): void => router.visit('/inventory/stocks');
 
-    // Get medicines with stock > 40 for dropdown
-    const eligibleMedicines = medicines.filter(med => med.stock > 40);
+    // Get medicines with stock > 40 for dropdown (map API quantity to stock)
+    const eligibleMedicines = medicines.filter(med => (med.quantity ?? 0) > 40);
 
     const handleRequestMedicine = (): void => {
         setRequestModalOpen(true);
@@ -94,12 +240,13 @@ const OtherBranchInventoryPage: React.FC = () => {
 
 
 
-    const getFilteredAndSortedMedicines = (): Medicine[] => {
-        let processed = medicines.filter(med =>
-            med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            med.category.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        return processed.sort((a, b) => new Date(a.expiry).getTime() - new Date(b.expiry).getTime());
+    const getFilteredAndSortedMedicines = (): BranchInventoryItem[] => {
+        let processed = medicines.filter(med => {
+            const name = (med.medicine_name || '').toString().toLowerCase();
+            const category = (med.category || '').toString().toLowerCase();
+            return name.includes(searchTerm.toLowerCase()) || category.includes(searchTerm.toLowerCase());
+        });
+        return processed.sort((a, b) => new Date((a.expiration_date || '') as string).getTime() - new Date((b.expiration_date || '') as string).getTime());
     };
 
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
@@ -179,18 +326,32 @@ const OtherBranchInventoryPage: React.FC = () => {
                             </div>
                         </div>
                         {/* Table for Other Branches */}
-                        <OtherInventoryTable medicines={getFilteredAndSortedMedicines()} searchTerm={searchTerm} />
-                        <div className="flex justify-end mt-8 flex-shrink-0">
-                            <button onClick={handleRequestMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
-                                REQUEST MEDICINE
-                            </button>
-                        </div>
+                        {inventoryLoading ? (
+                            <div className="py-10 text-center">
+                                <p className="text-gray-600">Loading inventories...</p>
+                            </div>
+                        ) : inventoryError ? (
+                            <div className="py-6 text-center">
+                                <p className="text-red-500">{inventoryError}</p>
+                            </div>
+                        ) : (
+                            <>
+                                <OtherInventoryTable medicines={getFilteredAndSortedMedicines()} searchTerm={searchTerm} />
+                                <div className="flex justify-end mt-8 flex-shrink-0">
+                                    <button onClick={handleRequestMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
+                                        REQUEST MEDICINE
+                                    </button>
+                                </div>
+                                {/* Debug panel removed; table shows selected branch enriched with user data */}
+                            </>
+                        )}
 
                         {/* Request Medicine Modal */}
                         <RequestMedicineModal
                             isOpen={isRequestModalOpen}
                             setIsOpen={setRequestModalOpen}
                             branchId={branchId}
+                            medicineOptions={medicines}
                             onRequest={handleRequestSubmit}
                         />
                     </div>

@@ -1,12 +1,31 @@
-import React from 'react';
-import { Medicine } from '../data/branchMedicines'; // Adjust path if necessary
+import React, { useEffect, useState } from 'react';
+import type { BranchInventoryItem, Medicine } from '../services/branchInventoryService';
+import { BranchInventoryService } from '../services/branchInventoryService';
 
 interface OtherInventoryTableProps {
-  medicines: Medicine[];
+  medicines: BranchInventoryItem[];
   searchTerm: string;
 }
 
 const OtherInventoryTable: React.FC<OtherInventoryTableProps> = ({ medicines, searchTerm }) => {
+  const [medicineLookup, setMedicineLookup] = useState<Map<number, Medicine>>(new Map());
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const list = await BranchInventoryService.getAllMedicines();
+        if (!mounted) return;
+        const map = new Map<number, Medicine>();
+        list.forEach(m => map.set(Number(m.medicine_id || 0), m));
+        setMedicineLookup(map);
+      } catch (err) {
+        // ignore - fallback to row values
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
   return (
     <div className="bg-white rounded-lg overflow-auto flex-1">
       <table className="w-full">
@@ -14,28 +33,25 @@ const OtherInventoryTable: React.FC<OtherInventoryTableProps> = ({ medicines, se
           <tr>
             <th className="px-6 py-4 text-left font-bold">MEDICINE NAME</th>
             <th className="px-6 py-4 text-left font-bold">CATEGORY</th>
-            <th className="px-6 py-4 text-left font-bold">DATE RECEIVED</th>
-            <th className="px-6 py-4 text-left font-bold">EXPIRATION DATE</th>
             <th className="px-6 py-4 text-left font-bold">QUANTITY</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
-          {medicines.map((medicine) => (
-            <tr key={medicine.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4">
-                <div className="text-gray-900 font-medium">
-                  {/* Logic to show brand or generic name */}
-                  {medicine.category.match(/Pain Relief|Antibiotic|Anti-inflammatory/) ? "RITEMED" : medicine.name.split(' ')[0]}
-                </div>
-                <div className="text-gray-600 text-sm">{medicine.name}</div>
-              </td>
-              <td className="px-6 py-4 text-gray-900">{medicine.category}</td>
-              {/* Using static dates as in the original example */}
-              <td className="px-6 py-4 text-gray-900">2025-08-26</td> 
-              <td className="px-6 py-4 text-gray-900">{medicine.expiry === "N/A" ? "2027-03-25" : medicine.expiry}</td>
-              <td className="px-6 py-4 text-gray-900 font-medium">{medicine.stock}</td>
-            </tr>
-          ))}
+          {medicines.map((item) => {
+            const id = Number(item.medicine_id || 0);
+            const found = medicineLookup.get(id) || undefined;
+            const displayName = found ? (found.medicine_name || item.medicine_name) : (item.medicine_name || 'Unknown');
+            const displayCategory = found ? (found.medicine_category || found.category || item.category) : (item.category || 'N/A');
+            return (
+              <tr key={`${item.medicine_id}-${item.lot_number ?? ''}`} className="hover:bg-gray-50">
+                <td className="px-6 py-4">
+                  <div className="text-gray-900 font-medium">{displayName}</div>
+                </td>
+                <td className="px-6 py-4 text-gray-900">{displayCategory}</td>
+                <td className="px-6 py-4 text-gray-900 font-medium">{item.quantity ?? 0}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       

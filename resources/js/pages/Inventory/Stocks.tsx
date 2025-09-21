@@ -15,6 +15,7 @@ const StocksPage: React.FC = () => {
     const [isInventoryOpen, setInventoryOpen] = useState(true);
     const [myBranch, setMyBranch] = useState<Branch | null>(null);
     const [otherBranches, setOtherBranches] = useState<Branch[]>([]);
+    // local inventory view removed; navigation to OtherInventoryStocks page is used instead
     const [loading, setLoading] = useState(true);
 
     const notifications: NotificationType[] = [
@@ -209,6 +210,7 @@ const StocksPage: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
+                            {/* navigation to other branch details page; in-place inventory removed */}
                         </div>
                     </div>
                 </main>
