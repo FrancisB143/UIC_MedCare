@@ -266,7 +266,18 @@ export class BranchInventoryService {
             }
 
             const data = await response.json();
-            return data;
+
+            // The API may return either:
+            // 1) { success: true, branch: { branch_id, branch_name, ... } }
+            // 2) the branch object directly
+            if (data && typeof data === 'object') {
+                if (data.success && data.branch) return data.branch as Branch;
+                if (data.branch) return data.branch as Branch;
+                // If the response looks like a Branch already, return it
+                if (data.branch_id && data.branch_name) return data as Branch;
+            }
+
+            return null;
         } catch (error) {
             console.error('Error fetching user branch info:', error);
             return null;
@@ -441,6 +452,106 @@ export class BranchInventoryService {
     static async getDeletedMedicines(): Promise<any[]> {
         console.warn('BranchInventoryService.getDeletedMedicines is deprecated. Use MSSQL API endpoint instead.');
         return [];
+    }
+
+    // Fetch archived medicines for a branch (MSSQL API)
+    static async getArchivedMedicines(branchId: number): Promise<any[]> {
+        try {
+            const response = await fetch(`/api/branches/${branchId}/archived`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error('Error fetching archived medicines:', error);
+            return [];
+        }
+    }
+
+    // Archive a medicine (move to medicine_archived)
+    static async archiveMedicine(request: { medicineStockInId: number, quantity: number, description: string, branchId: number, dateReceived?: string | null, expirationDate?: string | null }): Promise<boolean> {
+        try {
+            const response = await fetch('/api/medicines/archive', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    medicine_stock_in_id: request.medicineStockInId,
+                    quantity: request.quantity,
+                    description: request.description,
+                    branch_id: request.branchId
+                    , date_received: request.dateReceived ?? null
+                    , expiration_date: request.expirationDate ?? null
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({ message: 'Unknown error' }));
+                throw new Error(err.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error archiving medicine:', error);
+            return false;
+        }
+    }
+
+    // Restore an archived medicine (unarchive)
+    static async restoreArchivedMedicine(branchId: number, archivedId: number): Promise<boolean> {
+        try {
+            const response = await fetch(`/api/branches/${branchId}/archived/${archivedId}/restore`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error restoring archived medicine:', error);
+            return false;
+        }
+    }
+
+    // Permanently delete an archived medicine record
+    static async deleteArchivedMedicine(branchId: number, archivedId: number): Promise<boolean> {
+        try {
+            const response = await fetch(`/api/branches/${branchId}/archived/${archivedId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error deleting archived medicine:', error);
+            return false;
+        }
     }
 
     // @deprecated - Use MSSQL API endpoint instead

@@ -86,13 +86,32 @@ CREATE TABLE medicine_deleted (
     CONSTRAINT FK_md_branch FOREIGN KEY (branch_id) REFERENCES branches(branch_id)
 );
 
+-- Drop old table if it exists
+IF OBJECT_ID('medicine_deleted', 'U') IS NOT NULL
+    DROP TABLE medicine_deleted;
+GO
+
+-- Create the new table with name medicine_archived
+CREATE TABLE medicine_archived (
+    medicine_archived_id INT IDENTITY(1,1) PRIMARY KEY,
+    medicine_stock_in_id INT NOT NULL,
+    quantity INT NOT NULL,
+    description VARCHAR(MAX) NOT NULL,
+    archived_at DATETIME DEFAULT GETDATE(),
+    branch_id INT NOT NULL,
+
+    -- Foreign keys
+    CONSTRAINT FK_ma_stock_in FOREIGN KEY (medicine_stock_in_id) REFERENCES medicine_stock_in(medicine_stock_in_id),
+    CONSTRAINT FK_ma_branch FOREIGN KEY (branch_id) REFERENCES branches(branch_id)
+);
+
 
 CREATE TABLE history_log (
     history_id INT IDENTITY(1,1) PRIMARY KEY,
     medicine_id INT NOT NULL,
     branch_id INT NOT NULL,
     user_id INT NOT NULL,
-    activity VARCHAR(20) NOT NULL CHECK (activity IN ('dispensed', 'restocked', 'added', 'removed')),
+    activity VARCHAR(20) NOT NULL CHECK (activity IN ('dispensed', 'restocked', 'added')),
     quantity INT NOT NULL,
     description VARCHAR(MAX) NULL,
     created_at DATETIME DEFAULT GETDATE(),
@@ -159,5 +178,5 @@ GO
 SELECT * FROM medicines;
 SELECT * FROM medicine_stock_in;
 SELECT * FROM medicine_stock_out;
-SELECT * FROM medicine_deleted;
+SELECT * FROM medicine_archived;
 SELECT * FROM history_log;

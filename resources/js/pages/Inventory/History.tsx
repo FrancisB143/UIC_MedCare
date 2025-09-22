@@ -12,7 +12,7 @@ import {
     Plus,
     Minus,
     Package,
-    Trash2,
+    Archive,
     RefreshCcw,
     Activity,
     Calendar,
@@ -90,11 +90,13 @@ const History: React.FC = () => {
 
     // Filter and sort the history logs
     const getFilteredAndSortedHistoryLogs = () => {
-        let filtered = historyLogs.filter(log =>
-            log.medicine_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            log.activity.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        let filtered = historyLogs
+            .filter(log => (log.activity || '').toLowerCase() !== 'removed')
+            .filter(log =>
+                (log.medicine_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (log.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (log.activity || '').toLowerCase().includes(searchTerm.toLowerCase())
+            );
 
         if (sortBy === 'date') {
             filtered = filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -114,8 +116,6 @@ const History: React.FC = () => {
         switch (activity) {
             case 'dispensed':
                 return <Minus className="w-4 h-4 text-blue-600" />;
-            case 'removed':
-                return <Trash2 className="w-4 h-4 text-red-600" />;
             case 'restocked':
                 return <RefreshCcw className="w-4 h-4 text-orange-600" />;
             case 'added':
@@ -130,8 +130,6 @@ const History: React.FC = () => {
         switch (activity) {
             case 'dispensed':
                 return 'Dispensed';
-            case 'removed':
-                return 'Removed';
             case 'restocked':
                 return 'Restocked';
             case 'added':
@@ -146,8 +144,6 @@ const History: React.FC = () => {
         switch (activity) {
             case 'dispensed':
                 return 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300';
-            case 'removed':
-                return 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 border border-red-300';
             case 'restocked':
                 return 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 border border-orange-300';
             case 'added':
@@ -216,7 +212,7 @@ const History: React.FC = () => {
                 {/* Main History Container */}
                 <main className="flex-1 flex flex-col p-6 overflow-hidden bg-white">
                     {/* Activity Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                             <div className="flex items-center">
                                 <Plus className="w-8 h-8 text-green-600 mr-3" />
@@ -252,19 +248,6 @@ const History: React.FC = () => {
                                         {historyLogs.filter(h => h.activity === 'dispensed').length}
                                     </p>
                                     <p className="text-sm text-blue-600">Medicines dispensed to patients</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                            <div className="flex items-center">
-                                <Trash2 className="w-8 h-8 text-red-600 mr-3" />
-                                <div>
-                                    <h3 className="text-lg font-medium text-red-800">Removed</h3>
-                                    <p className="text-2xl font-bold text-red-900">
-                                        {historyLogs.filter(h => h.activity === 'removed').length}
-                                    </p>
-                                    <p className="text-sm text-red-600">Medicines removed from inventory</p>
                                 </div>
                             </div>
                         </div>

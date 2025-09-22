@@ -97,7 +97,7 @@ IF EXISTS (SELECT * FROM sys.triggers WHERE name = 'trg_medicine_deleted_history
 
 GO
 
-CREATE TRIGGER trg_medicine_deleted_history
+/* CREATE TRIGGER trg_medicine_deleted_history
 ON medicine_deleted
 AFTER INSERT
 AS
@@ -117,7 +117,15 @@ BEGIN
     JOIN medicines m ON msi.medicine_id = m.medicine_id;
 END;
 
+GO 
+
+-- remove the delete 
+IF EXISTS (SELECT * FROM sys.triggers WHERE name = 'trg_medicine_deleted_history')
+    DROP TRIGGER trg_medicine_deleted_history;
 GO
+
+PRINT '✅ Trigger trg_medicine_deleted_history dropped successfully.'; */
+
 
 -- =============================================
 -- Verification

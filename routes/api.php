@@ -47,6 +47,12 @@ Route::post('/history-log', [UserController::class, 'addHistoryLog']);
 // Dashboard routes for MSSQL integration
 Route::get('/branches/{branchId}/low-stock', [UserController::class, 'getLowStockMedicines']);
 Route::get('/branches/{branchId}/expiring-soon', [UserController::class, 'getSoonToExpireMedicines']);
+// Archived medicines routes
+Route::get('/branches/{branchId}/archived', [UserController::class, 'getArchivedMedicines']);
+Route::post('/branches/{branchId}/archived/{archivedId}/restore', [UserController::class, 'restoreArchivedMedicine']);
+Route::delete('/branches/{branchId}/archived/{archivedId}', [UserController::class, 'deleteArchivedMedicine']);
+// Endpoint to archive a medicine (move to medicine_archived)
+Route::post('/medicines/archive', [UserController::class, 'archiveMedicine']);
 
 // The default user route can stay if you need it
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class UserController extends Controller
 {
@@ -79,13 +80,17 @@ class UserController extends Controller
         try {
             Log::info("Getting branch info for user ID: {$userId}");
 
+            // Build select columns conditionally in case the branches.address column doesn't exist
+            $branchSelect = ['branches.branch_id', 'branches.branch_name'];
+            if (Schema::hasColumn('branches', 'address')) {
+                $branchSelect[] = 'branches.address';
+            } else {
+                Log::warning('branches.address column not found - skipping address in getUserBranch select');
+            }
+
             $branchInfo = DB::table('users')
                 ->leftJoin('branches', 'users.branch_id', '=', 'branches.branch_id')
-                ->select(
-                    'branches.branch_id',
-                    'branches.branch_name',
-                    'branches.address'
-                )
+                ->select($branchSelect)
                 ->where('users.user_id', $userId)
                 ->first();
 
@@ -400,13 +405,18 @@ class UserController extends Controller
 
             Log::info("Stock out data fetched: " . count($stockOutData) . " records");
 
-            // Get all deleted medicine records for this branch
-            $deletedData = DB::table('medicine_deleted')
-                ->select('medicine_stock_in_id', 'quantity')
-                ->where('branch_id', $branchId)
-                ->get();
+            // Get all deleted medicine records for this branch if the table exists
+            if (Schema::hasTable('medicine_deleted')) {
+                $deletedData = DB::table('medicine_deleted')
+                    ->select('medicine_stock_in_id', 'quantity')
+                    ->where('branch_id', $branchId)
+                    ->get();
 
-            Log::info("Deleted data fetched: " . count($deletedData) . " records");
+                Log::info("Deleted data fetched: " . count($deletedData) . " records");
+            } else {
+                Log::warning("medicine_deleted table not found - treating deletedData as empty for branch ID: {$branchId}");
+                $deletedData = collect();
+            }
 
             // Create maps for dispensed and deleted quantities
             $dispensedMap = [];
@@ -941,6 +951,218 @@ class UserController extends Controller
                 'success' => false,
                 'message' => 'Server error occurred: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Get archived medicines for a branch
+     */
+    public function getArchivedMedicines($branchId)
+    {
+        try {
+            Log::info("Fetching archived medicines for branch ID: {$branchId}");
+
+            if (!Schema::hasTable('medicine_archived')) {
+                Log::warning("medicine_archived table not found - returning empty array for branch ID: {$branchId}");
+                return response()->json([]);
+            }
+
+            $archivedQuery = DB::table('medicine_archived as ma')
+                ->leftJoin('medicine_stock_in as msi', 'ma.medicine_stock_in_id', '=', 'msi.medicine_stock_in_id')
+                ->leftJoin('medicines as m', 'msi.medicine_id', '=', 'm.medicine_id')
+                ->where('ma.branch_id', $branchId)
+                ->orderBy('ma.archived_at', 'desc');
+
+            $selects = [
+                'ma.medicine_archived_id as id',
+                'ma.medicine_stock_in_id',
+                'ma.quantity',
+                'ma.description',
+                'ma.archived_at',
+                'ma.branch_id',
+                'msi.date_received as stock_date_received',
+                'msi.expiration_date as stock_expiration_date',
+                'm.medicine_name',
+                'm.medicine_category'
+            ];
+
+            if (Schema::hasColumn('medicine_archived', 'date_received')) {
+                $selects[] = 'ma.date_received as archived_date_received';
+            }
+            if (Schema::hasColumn('medicine_archived', 'expiration_date')) {
+                $selects[] = 'ma.expiration_date as archived_expiration_date';
+            }
+
+            $archived = $archivedQuery->select($selects)->get();
+
+            return response()->json($archived->toArray());
+
+        } catch (\Exception $e) {
+            Log::error("Error in getArchivedMedicines: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Archive a medicine: insert into medicine_archived and reduce quantity from stock in
+     */
+    public function archiveMedicine(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'medicine_stock_in_id' => 'required|integer',
+                'quantity' => 'required|integer|min:1',
+                'description' => 'required|string|min:3',
+                'branch_id' => 'required|integer'
+            ]);
+
+            Log::info('Archiving medicine: ' . json_encode($validated));
+
+            if (!Schema::hasTable('medicine_archived')) {
+                Log::error('medicine_archived table not found - cannot archive');
+                return response()->json([ 'success' => false, 'message' => 'Archive table not found' ], 500);
+            }
+
+            DB::beginTransaction();
+
+            // Verify stock in record
+            $stockIn = DB::table('medicine_stock_in')
+                ->where('medicine_stock_in_id', $validated['medicine_stock_in_id'])
+                ->where('branch_id', $validated['branch_id'])
+                ->first();
+
+            if (!$stockIn) {
+                DB::rollBack();
+                return response()->json([ 'success' => false, 'message' => 'Stock in record not found' ], 404);
+            }
+
+            if ($stockIn->quantity < $validated['quantity']) {
+                DB::rollBack();
+                return response()->json([ 'success' => false, 'message' => 'Insufficient stock to archive' ], 400);
+            }
+
+            // Prepare insert data for medicine_archived, include optional date fields if available in request and in schema
+            $insertData = [
+                'medicine_stock_in_id' => $validated['medicine_stock_in_id'],
+                'quantity' => $validated['quantity'],
+                'description' => $validated['description'],
+                'archived_at' => now(),
+                'branch_id' => $validated['branch_id']
+            ];
+
+            if ($request->has('date_received') && Schema::hasColumn('medicine_archived', 'date_received')) {
+                $insertData['date_received'] = $request->input('date_received');
+            }
+            if ($request->has('expiration_date') && Schema::hasColumn('medicine_archived', 'expiration_date')) {
+                $insertData['expiration_date'] = $request->input('expiration_date');
+            }
+
+            // Insert into medicine_archived
+            $archivedId = DB::table('medicine_archived')->insertGetId($insertData);
+
+            // Subtract from medicine_stock_in quantity
+            $newQuantity = $stockIn->quantity - $validated['quantity'];
+            DB::table('medicine_stock_in')
+                ->where('medicine_stock_in_id', $validated['medicine_stock_in_id'])
+                ->update(['quantity' => $newQuantity]);
+
+            DB::commit();
+
+            Log::info('Medicine archived successfully, id: ' . $archivedId);
+
+            return response()->json([ 'success' => true, 'data' => [ 'medicine_archived_id' => $archivedId, 'remaining_quantity' => $newQuantity ] ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            Log::error('Validation error in archiveMedicine: ' . json_encode($e->errors()));
+            return response()->json([ 'success' => false, 'message' => 'Validation failed', 'errors' => $e->errors() ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error in archiveMedicine: ' . $e->getMessage());
+            return response()->json([ 'success' => false, 'message' => 'Server error occurred' ], 500);
+        }
+    }
+
+    /**
+     * Restore an archived medicine: remove from medicine_archived and add back to stock in
+     */
+    public function restoreArchivedMedicine($branchId, $archivedId)
+    {
+        try {
+            Log::info("Restoring archived medicine ID: {$archivedId} for branch {$branchId}");
+
+            if (!Schema::hasTable('medicine_archived')) {
+                Log::error('medicine_archived table not found - cannot restore');
+                return response()->json([ 'success' => false, 'message' => 'Archive table not found' ], 500);
+            }
+
+            DB::beginTransaction();
+
+            $archived = DB::table('medicine_archived')->where('medicine_archived_id', $archivedId)->where('branch_id', $branchId)->first();
+            if (!$archived) {
+                DB::rollBack();
+                return response()->json([ 'success' => false, 'message' => 'Archived record not found' ], 404);
+            }
+
+            // Add back to the corresponding medicine_stock_in quantity
+            $stockIn = DB::table('medicine_stock_in')->where('medicine_stock_in_id', $archived->medicine_stock_in_id)->first();
+            if (!$stockIn) {
+                // If the original stock record no longer exists, create a new stock_in entry using minimal info
+                $newStockId = DB::table('medicine_stock_in')->insertGetId([
+                    'medicine_id' => DB::table('medicines')->where('medicine_id', DB::raw('(SELECT medicine_id FROM medicine_stock_in WHERE medicine_stock_in_id = ' . intval($archived->medicine_stock_in_id) . ')'))->value('medicine_id') ?? 0,
+                    'branch_id' => $branchId,
+                    'quantity' => $archived->quantity,
+                    'date_received' => now(),
+                    'expiration_date' => null,
+                    'user_id' => null
+                ]);
+            } else {
+                DB::table('medicine_stock_in')
+                    ->where('medicine_stock_in_id', $archived->medicine_stock_in_id)
+                    ->update(['quantity' => $stockIn->quantity + $archived->quantity]);
+            }
+
+            // Remove archived record
+            DB::table('medicine_archived')->where('medicine_archived_id', $archivedId)->delete();
+
+            DB::commit();
+
+            return response()->json([ 'success' => true ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error in restoreArchivedMedicine: ' . $e->getMessage());
+            return response()->json([ 'success' => false, 'message' => 'Server error occurred' ], 500);
+        }
+    }
+
+    /**
+     * Permanently delete an archived medicine record
+     */
+    public function deleteArchivedMedicine($branchId, $archivedId)
+    {
+        try {
+            Log::info("Deleting archived medicine ID: {$archivedId} for branch {$branchId}");
+
+            if (!Schema::hasTable('medicine_archived')) {
+                Log::error('medicine_archived table not found - cannot delete archived record');
+                return response()->json([ 'success' => false, 'message' => 'Archive table not found' ], 500);
+            }
+
+            $deleted = DB::table('medicine_archived')->where('medicine_archived_id', $archivedId)->where('branch_id', $branchId)->delete();
+
+            if (!$deleted) {
+                return response()->json([ 'success' => false, 'message' => 'Archived record not found' ], 404);
+            }
+
+            return response()->json([ 'success' => true ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error in deleteArchivedMedicine: ' . $e->getMessage());
+            return response()->json([ 'success' => false, 'message' => 'Server error occurred' ], 500);
         }
     }
 

@@ -7,7 +7,7 @@ import RemovalReasonModal from '../../components/RemovalReasonModal';
 import DispenseMedicineModal from '../../components/DispenseMedicineModal';
 import ReorderMedicineModal from '../../components/ReorderMedicineModal';
 import { router } from '@inertiajs/react';
-import { ArrowLeft, Search, Menu, Trash2 } from 'lucide-react';
+import { ArrowLeft, Search, Menu, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { UserService } from '../../services/userService';
 import { NotificationService } from '../../services/notificationService';
@@ -69,6 +69,8 @@ const BranchInventoryPage: React.FC = () => {
     const [newlyAddedRecordId, setNewlyAddedRecordId] = useState<number | null>(null);
     const [lowStockMedicines, setLowStockMedicines] = useState<any[]>([]);
     const [selectedGroupForDispense, setSelectedGroupForDispense] = useState<any | null>(null);
+    const [isArchivedModalOpen, setArchivedModalOpen] = useState(false);
+    const [archivedMedicines, setArchivedMedicines] = useState<any[]>([]);
 
     const notifications: NotificationType[] = [
         { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
@@ -216,6 +218,27 @@ const BranchInventoryPage: React.FC = () => {
         }
     };
 
+    const loadArchivedMedicines = async () => {
+        if (!branchInfo) return;
+        try {
+            const data = await BranchInventoryService.getArchivedMedicines(branchInfo.branch_id);
+            if (!data || data.length === 0) {
+                // fallback mock for dev
+                setArchivedMedicines([
+                    { id: 1, medicine_name: 'Paracetamol', medicine_category: 'Analgesic', date_received: '2025-08-01', expiration_date: '2027-08-01', quantity: 10, description: 'Damaged packaging' },
+                    { id: 2, medicine_name: 'Amoxicillin', medicine_category: 'Antibiotic', date_received: '2025-06-10', expiration_date: '2026-06-10', quantity: 0, description: 'Expired' }
+                ]);
+            } else {
+                setArchivedMedicines(data);
+            }
+        } catch (error) {
+            console.error('Failed to load archived medicines:', error);
+            setArchivedMedicines([
+                { id: 1, medicine_name: 'Paracetamol', medicine_category: 'Analgesic', date_received: '2025-08-01', expiration_date: '2027-08-01', quantity: 10, description: 'Damaged packaging' },
+            ]);
+        }
+    };
+
     // EVENT HANDLERS
     const handleNavigation = (path: string): void => router.visit(path);
     
@@ -233,7 +256,7 @@ const BranchInventoryPage: React.FC = () => {
         setRemovalModalOpen(true);
     };
     
-    const handleConfirmRemoval = async (reason: string) => {
+    const handleConfirmRemoval = async (reason: string, dateReceived?: string | null, expirationDate?: string | null) => {
         if (medicineToDelete !== null && branchInfo && currentUser) {
             try {
                 console.log('=== REMOVAL DEBUG START ===');
@@ -246,43 +269,42 @@ const BranchInventoryPage: React.FC = () => {
 
                 const currentQuantity = medicineToDelete.quantity || 0;
                 
-                // Check if we have medicine_stock_in_id (for individual stock record deletion)
+                // Check if we have medicine_stock_in_id (for individual stock record archiving)
                 if (medicineToDelete.medicine_stock_in_id) {
-                    console.log('Using direct stock record deletion method');
+                    console.log('Using archive flow for stock record');
                     console.log('Stock record ID:', medicineToDelete.medicine_stock_in_id);
-                    console.log('Quantity to delete:', currentQuantity);
-                    
-                    // Delete the specific stock record directly using new medicine_deleted schema
-                    const deleteRequest: MedicineDeletedRequest = {
+                    console.log('Quantity to archive:', currentQuantity);
+
+                    const success = await BranchInventoryService.archiveMedicine({
                         medicineStockInId: medicineToDelete.medicine_stock_in_id,
                         quantity: currentQuantity,
-                        description: reason || 'Medicine removed from inventory',
-                        branchId: branchInfo.branch_id
-                    };
-                    
-                    const success = await BranchInventoryService.deleteMedicine(deleteRequest);
+                        description: reason || 'Medicine archived from inventory',
+                        branchId: branchInfo.branch_id,
+                        dateReceived: dateReceived || medicineToDelete.date_received || null,
+                        expirationDate: expirationDate || medicineToDelete.expiration_date || null
+                    });
 
                     if (!success) {
-                        console.error('❌ Direct deletion failed');
+                        console.error('❌ Archiving failed');
                         Swal.fire({
                             icon: 'error',
-                            title: 'Removal Failed',
-                            text: 'Failed to remove medicine. Please check the console for details and try again.',
+                            title: 'Archive Failed',
+                            text: 'Failed to archive medicine. Please check the console for details and try again.',
                             confirmButtonText: 'OK'
                         });
                         return;
                     }
-                    
-                    console.log('✅ Direct deletion succeeded');
-                    
-                    // History logging is now handled by database triggers
-                    // No need for manual logging here
+
+                    console.log('✅ Archiving succeeded');
+                    // history handled by DB triggers
+                    // Refresh archived list if modal is open
+                    if (isArchivedModalOpen) await loadArchivedMedicines();
                 } else {
-                    console.log('❌ No medicine_stock_in_id found, cannot delete individual record');
+                    console.log('❌ No medicine_stock_in_id found, cannot archive individual record');
                     Swal.fire({
                         icon: 'error',
-                        title: 'Cannot Delete Medicine',
-                        text: 'Cannot delete medicine: missing stock record ID. Please refresh the page and try again.',
+                        title: 'Cannot Archive Medicine',
+                        text: 'Cannot archive medicine: missing stock record ID. Please refresh the page and try again.',
                         confirmButtonText: 'OK'
                     });
                     return;
@@ -636,11 +658,90 @@ const BranchInventoryPage: React.FC = () => {
             <RemovalReasonModal
                 isOpen={isRemovalModalOpen}
                 setIsOpen={setRemovalModalOpen}
-                onSubmit={handleConfirmRemoval}
+                onSubmit={async (description: string, medicineStockInId?: number | null, dateReceived?: string | null, expirationDate?: string | null) => {
+                    // if a batch was selected, prefer its dates
+                    await handleConfirmRemoval(description, dateReceived ?? null, expirationDate ?? null);
+                }}
                 currentStock={medicineToDelete?.quantity || 0}
                 medicineName={medicineToDelete?.medicine?.medicine_name}
                 medicineCategory={medicineToDelete?.medicine?.medicine_category}
+                batchOptions={medicineToDelete ? [{
+                    medicine_stock_in_id: medicineToDelete.medicine_stock_in_id || 0,
+                    date_received: medicineToDelete.date_received || null,
+                    expiration_date: medicineToDelete.expiration_date || null,
+                    quantity: medicineToDelete.quantity || null
+                }] : []}
             />
+            {/* Archived Medicines Modal */}
+            {isArchivedModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="bg-white rounded-lg w-11/12 md:w-3/4 lg:w-2/3 max-h-[80vh] overflow-auto p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-semibold text-black">Archived Medicines</h3>
+                            <button onClick={() => setArchivedModalOpen(false)} className="text-gray-500 hover:text-gray-700">Close</button>
+                        </div>
+                        <div className="w-full overflow-auto max-h-[70vh]">
+                            <table className="w-full">
+                                <thead className="border-b">
+                                    <tr>
+                                        <th className="text-left text-sm text-gray-500 py-3">Name</th>
+                                        <th className="text-left text-sm text-gray-500 py-3">Date Received</th>
+                                        <th className="text-left text-sm text-gray-500 py-3">Expiration Date</th>
+                                        <th className="text-left text-sm text-gray-500 py-3">Quantity</th>
+                                        <th className="text-left text-sm text-gray-500 py-3">Reason</th>
+                                        <th className="text-center text-sm text-gray-500 py-3">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {archivedMedicines.map((m) => (
+                                        <tr key={m.id} className="border-b hover:bg-gray-50">
+                                            <td className="py-3">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
+                                                        <Archive className="w-4 h-4 text-blue-500" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-blue-600">{m.medicine_name}</div>
+                                                        <div className="text-sm text-gray-500">{m.medicine_category}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 text-sm text-black">{m.archived_date_received ?? m.stock_date_received ?? m.date_received ?? m.dateReceived ?? 'N/A'}</td>
+                                            <td className="py-3 text-sm text-black">{m.archived_expiration_date ?? m.stock_expiration_date ?? m.expiration_date ?? m.expirationDate ?? 'N/A'}</td>
+                                            <td className="py-3 text-sm text-gray-500">{m.quantity ?? 0}</td>
+                                            <td className="py-3 text-sm text-gray-500">{m.description || m.reason || 'N/A'}</td>
+                                            <td className="py-3 text-center">
+                                                <div className="flex items-center justify-center space-x-2">
+                                                    <button onClick={async () => {
+                                                        if (!branchInfo) return;
+                                                        const ok = await BranchInventoryService.restoreArchivedMedicine(branchInfo.branch_id, m.id);
+                                                        if (ok) {
+                                                            await loadArchivedMedicines();
+                                                            await loadInventoryData();
+                                                        } else {
+                                                            Swal.fire({ icon: 'error', title: 'Restore Failed', text: 'Could not restore medicine.' });
+                                                        }
+                                                    }} className="p-2 rounded-md bg-green-100 hover:bg-green-200 text-green-700 cursor-pointer" title="Unarchive">
+                                                        <ArchiveRestore className="h-4 w-4" />
+                                                    </button>
+                                                    <button onClick={async () => {
+                                                        if (!branchInfo) return;
+                                                        const ok = await BranchInventoryService.deleteArchivedMedicine(branchInfo.branch_id, m.id);
+                                                        if (ok) await loadArchivedMedicines();
+                                                        else Swal.fire({ icon: 'error', title: 'Delete Failed', text: 'Could not delete archived medicine.' });
+                                                    }} className="p-2 rounded-md bg-red-100 hover:bg-red-200 text-red-700 cursor-pointer" title="Delete">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
             {selectedGroupForDispense && (
                 <DispenseMedicineModal
                     isOpen={isDispenseModalOpen}
@@ -770,24 +871,27 @@ const BranchInventoryPage: React.FC = () => {
                                                     <div className="flex items-center justify-center space-x-2">
                                                         <button 
                                                             onClick={() => { setSelectedGroupForDispense(group); setDispenseModalOpen(true); }} 
-                                                            className="bg-red-200 text-red-800 hover:bg-red-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors" 
+                                                            className="bg-red-200 text-red-800 hover:bg-red-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors cursor-pointer" 
                                                             title="Dispense Medicine"
                                                         >
                                                             -
                                                         </button>
                                                         <button 
                                                             onClick={() => { setMedicineToReorder(group.representative); setReorderModalOpen(true); }} 
-                                                            className="bg-green-200 text-green-800 hover:bg-green-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors" 
+                                                            className="bg-green-200 text-green-800 hover:bg-green-300 w-7 h-7 rounded-full flex items-center justify-center font-bold text-lg transition-colors cursor-pointer" 
                                                             title="Reorder/Add Stock"
                                                         >
                                                             +
                                                         </button>
-                                                        <button 
-                                                            onClick={() => { setMedicineToDelete(group.representative); setRemovalModalOpen(true); }} 
-                                                            className="text-gray-500 hover:text-red-600 p-1 transition-colors" 
-                                                            title="Delete"
+                                                        <button
+                                                            onClick={() => { setMedicineToDelete(group.representative); setRemovalModalOpen(true); }}
+                                                            className="text-gray-500 hover:text-red-600 p-1 transition-colors rounded-full hover:bg-gray-100 hover:text-red-600 cursor-pointer flex items-center justify-center"
+                                                            title="Archive:"
+                                                            aria-label="Archive"
                                                         >
-                                                            <Trash2 className="w-5 h-5" />
+                                                            <span className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center">
+                                                                <Archive className="w-4 h-4 text-gray-700" />
+                                                            </span>
                                                         </button>
                                                     </div>
                                                 </td>
@@ -798,7 +902,10 @@ const BranchInventoryPage: React.FC = () => {
                             </table>
                         </div>
 
-                        <div className="flex justify-end mt-8 flex-shrink-0">
+                        <div className="flex justify-end mt-8 flex-shrink-0 space-x-3">
+                            <button onClick={async () => { await loadArchivedMedicines(); setArchivedModalOpen(true); }} className="bg-gray-200 hover:bg-gray-300 text-black font-medium py-3 px-5 rounded-lg transition-colors duration-200 cursor-pointer">
+                                Archived Medicines
+                            </button>
                             <button onClick={handleAddMedicine} className="bg-[#a3386c] hover:bg-[#8a2f5a] text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 cursor-pointer transform hover:scale-105">
                                 ADD MEDICINE
                             </button>
