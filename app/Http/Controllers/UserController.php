@@ -614,18 +614,27 @@ class UserController extends Controller
 
     /**
      * Get available stock records for a medicine (FIFO order)
+     * Accepts optional query param `include_all=1` to return all stock-in rows even when available quantity is zero.
      */
-    public function getAvailableStockRecords($medicineId, $branchId)
+    public function getAvailableStockRecords(Request $request, $medicineId, $branchId)
     {
         try {
             Log::info("Getting available stock records for medicine {$medicineId} in branch {$branchId}");
 
+            $includeAll = $request->query('include_all') == '1';
+            $filterUserId = $request->query('user_id');
+
             // Get all stock in records for this medicine and branch, ordered by date (FIFO)
-            $stockInData = DB::table('medicine_stock_in')
-                ->select('medicine_stock_in_id', 'quantity', 'date_received')
-                ->where('medicine_id', $medicineId)
-                ->where('branch_id', $branchId)
-                ->orderBy('date_received', 'asc') // FIFO - oldest first
+            $stockInData = DB::table('medicine_stock_in as msi')
+                ->leftJoin('medicines as m', 'msi.medicine_id', '=', 'm.medicine_id')
+                ->select('msi.medicine_stock_in_id', 'msi.quantity', 'msi.date_received', 'msi.expiration_date', 'm.medicine_name')
+                ->where('msi.medicine_id', $medicineId)
+                ->where('msi.branch_id', $branchId)
+                // Optionally filter by the user who created/added the stock-in row
+                ->when($filterUserId, function($q) use ($filterUserId) {
+                    return $q->where('msi.user_id', $filterUserId);
+                })
+                ->orderBy('msi.date_received', 'asc') // FIFO - oldest first
                 ->get();
 
             if ($stockInData->isEmpty()) {
@@ -647,15 +656,19 @@ class UserController extends Controller
 
                 $available = $stockIn->quantity - $totalDispensed - $totalDeleted;
 
-                if ($available > 0) {
+                // Include the record if it has available > 0, or if include_all is requested
+                if ($available > 0 || $includeAll) {
                     $availableRecords[] = [
-                        'stockInId' => $stockIn->medicine_stock_in_id,
-                        'availableQuantity' => $available
+                        'medicine_stock_in_id' => $stockIn->medicine_stock_in_id,
+                        'availableQuantity' => $available,
+                        'date_received' => $stockIn->date_received,
+                        'expiration_date' => $stockIn->expiration_date,
+                        'medicine_name' => $stockIn->medicine_name
                     ];
                 }
             }
 
-            Log::info("Found " . count($availableRecords) . " available stock records");
+            Log::info("Found " . count($availableRecords) . " available stock records (include_all=" . ($includeAll ? '1' : '0') . ")");
             return response()->json($availableRecords);
 
         } catch (\Exception $e) {

@@ -248,6 +248,45 @@ export class BranchInventoryService {
         }
     }
 
+    /**
+     * Get available stock records (remaining per stock_in) for a medicine in a branch
+     * Uses backend endpoint: /api/medicine-stock-records/{medicineId}/{branchId}
+     */
+    static async getAvailableStockRecords(medicineId: number, branchId: number, includeAll: boolean = true, userId?: number | null): Promise<Array<{ medicine_stock_in_id: number; date_received?: string | null; expiration_date?: string | null; quantity: number }>> {
+        try {
+            let url = `/api/medicine-stock-records/${medicineId}/${branchId}`;
+            const params: string[] = [];
+            if (includeAll) params.push('include_all=1');
+            if (userId) params.push(`user_id=${userId}`);
+            if (params.length > 0) url += '?' + params.join('&');
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const arr = Array.isArray(data) ? data : [];
+
+            // Normalize backend shape into frontend expected BatchOption
+            return arr.map((row: any) => ({
+                medicine_stock_in_id: row.medicine_stock_in_id ?? row.stockInId ?? row.medicine_stock_in_id ?? row.medicineStockInId ?? 0,
+                date_received: row.date_received ?? row.dateReceived ?? null,
+                expiration_date: row.expiration_date ?? row.expirationDate ?? null,
+                quantity: Number(row.availableQuantity ?? row.available_quantity ?? row.quantity ?? 0)
+            }));
+        } catch (error) {
+            console.error('Error fetching available stock records:', error);
+            return [];
+        }
+    }
+
     // Working MSSQL API methods for branch management
     
     // Get user's branch information

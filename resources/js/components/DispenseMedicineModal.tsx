@@ -26,7 +26,8 @@ const DispenseMedicineModal: React.FC<DispenseMedicineModalProps> = ({
     
     const [quantity, setQuantity] = useState('');
     const [selectedBatch, setSelectedBatch] = useState<number | null>(null);
-    const [selectedDateReceived, setSelectedDateReceived] = useState<string>('');
+    const [selectedDateReceived, setSelectedDateReceived] = useState<string | null>(null);
+    const [expirationDate, setExpirationDate] = useState<string | null>(null);
     const [filteredBatches, setFilteredBatches] = useState<Array<any>>(batches || []);
 
     const NO_DATE = '__NO_DATE__';
@@ -39,16 +40,19 @@ const DispenseMedicineModal: React.FC<DispenseMedicineModalProps> = ({
         }
     };
 
-    // Keep selectedDateReceived in sync when selectedBatch changes
+    // Keep selectedDateReceived/expiration in sync when selectedBatch changes
     useEffect(() => {
         if (selectedBatch) {
             const found = (batches || []).find((b: any) => b.medicine_stock_in_id === selectedBatch) || (filteredBatches || []).find((b: any) => b.medicine_stock_in_id === selectedBatch);
             if (found) {
-                setSelectedDateReceived(found.date_received || '');
+                setSelectedDateReceived(found.date_received ? normalizeDate(found.date_received) : null);
+                setExpirationDate(found.expiration_date ? normalizeDate(found.expiration_date) : null);
             }
         } else {
-            // no batch selected -> clear the date selection
-            setSelectedDateReceived('');
+            // no batch selected -> keep the selectedDateReceived (user's filter),
+            // but clear expiration since no specific batch is chosen
+            // (previous behavior cleared the date too which reverted the select to "All Dates").
+            setExpirationDate(null);
         }
     }, [selectedBatch, batches, filteredBatches]);
 
@@ -56,7 +60,8 @@ const DispenseMedicineModal: React.FC<DispenseMedicineModalProps> = ({
         if (isOpen) {
             // Default to All Dates (no batch selected)
             setSelectedBatch(null);
-            setSelectedDateReceived('');
+            setSelectedDateReceived(null);
+            setExpirationDate(null);
             setFilteredBatches(batches || []);
         }
     }, [isOpen, batches]);
@@ -156,59 +161,70 @@ const DispenseMedicineModal: React.FC<DispenseMedicineModalProps> = ({
                                 {batches && batches.length > 0 && (
                                     <>
                                         <div className="mb-3 text-left">
-                                            <label className="block text-xs text-gray-600 mb-1">Date Received</label>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Date Received</label>
                                             <select
                                                 value={selectedDateReceived ?? ''}
                                                 onChange={(e) => {
                                                     const val = e.target.value || '';
-                                                    setSelectedDateReceived(val);
-                                                    // Filter batches with matching date_received
+                                                    setSelectedDateReceived(val || null);
                                                     if (val) {
-                                                        const matched = batches.filter((b: any) => b.date_received === val);
-                                                        // sort by nearest expiration date asc
+                                                        // Filter batches having this date_received
+                                                        const matched = (batches || []).filter((b: any) => normalizeDate(b.date_received) === normalizeDate(val));
+                                                        // sort by expiration (closest first)
                                                         matched.sort((a: any, b: any) => {
                                                             if (!a.expiration_date) return 1;
                                                             if (!b.expiration_date) return -1;
                                                             return new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime();
                                                         });
+                                                        // Only update filtered batches. Do NOT auto-select expiration or batch.
                                                         setFilteredBatches(matched);
-                                                        setSelectedBatch(matched.length > 0 ? matched[0].medicine_stock_in_id : null);
+                                                        // Clear previous selection so the user must choose expiration and batch explicitly
+                                                        setSelectedBatch(null);
+                                                        setExpirationDate(null);
                                                     } else {
-                                                        // All Dates selected: reset filtered list but do NOT auto-pick a batch
+                                                        // All Dates
                                                         setFilteredBatches(batches);
                                                         setSelectedBatch(null);
+                                                        setExpirationDate(null);
                                                     }
                                                 }}
-                                                className="w-full p-2 border rounded text-sm text-gray-700"
+                                                className="w-full p-3 border rounded text-base text-gray-700"
                                             >
                                                 <option value="">-- All Dates --</option>
-                                                {Array.from(new Set(batches.map((b: any) => b.date_received))).map((d: any) => (
-                                                    <option key={d || 'no-date'} value={d}>{d ? new Date(d).toLocaleDateString() : 'No Date'}</option>
+                                                {Array.from(new Set(batches.map((b: any) => normalizeDate(b.date_received)))).map((d: any) => (
+                                                    <option key={d} value={d}>{d === NO_DATE ? 'No Date' : new Date(d).toLocaleDateString()}</option>
                                                 ))}
                                             </select>
                                         </div>
 
                                         <div className="mb-3 text-left">
-                                            <label className="block text-xs text-gray-600 mb-1">Select batch (by expiration)</label>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Expiration Date</label>
                                             <select
-                                                value={selectedBatch ?? ''}
+                                                value={expirationDate ?? ''}
                                                 onChange={(e) => {
-                                                    const id = Number(e.target.value);
-                                                    setSelectedBatch(id);
-                                                    const batch = (filteredBatches || batches).find((b: any) => b.medicine_stock_in_id === id);
-                                                    setSelectedDateReceived(batch ? batch.date_received || '' : '');
+                                                    const raw = e.target.value || null;
+                                                    const val = raw ? normalizeDate(raw) : null;
+                                                    setExpirationDate(val);
+                                                    const match = (filteredBatches || batches).find((b: any) => normalizeDate(b.expiration_date) === normalizeDate(val));
+                                                    if (match) setSelectedBatch(match.medicine_stock_in_id);
+                                                    else setSelectedBatch(null);
                                                 }}
-                                                className="w-full p-2 border rounded text-sm text-gray-700"
+                                                className={`w-full p-3 border rounded text-base text-gray-700 ${!selectedDateReceived ? 'opacity-60 cursor-not-allowed bg-gray-100' : ''}`}
+                                                disabled={!selectedDateReceived}
                                             >
-                                                {filteredBatches.map((b: any) => (
-                                                    <option key={b.medicine_stock_in_id} value={b.medicine_stock_in_id}>
-                                                        {b.expiration_date ? new Date(b.expiration_date).toLocaleDateString() : 'No Expiry'} — {b.quantity || 0} units
-                                                    </option>
+                                                <option value="">-- Select expiration date --</option>
+                                                {Array.from(new Set((filteredBatches || []).map((b: any) => normalizeDate(b.expiration_date)))).map((d: any) => (
+                                                    <option key={d} value={d}>{d === NO_DATE ? 'No Expiry' : new Date(d).toLocaleDateString()}</option>
                                                 ))}
                                             </select>
+                                            {/* when disabled, apply a locked appearance via opacity and cursor */}
                                         </div>
                                     </>
                                 )}
+
+                            <div className="text-left mb-2">
+                                <label className="block text-sm font-semibold text-gray-700">Quantity to Dispense</label>
+                            </div>
 
                             <input
                                 type="number"
@@ -217,7 +233,7 @@ const DispenseMedicineModal: React.FC<DispenseMedicineModalProps> = ({
                                 placeholder="e.g., 10"
                                 min="1"
                                 max={currentStock}
-                                className="w-full text-center p-3 border-2 border-[#A3386C] rounded-lg focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-gray-700 text-lg"
+                                className="w-full text-center p-2 border-2 border-[#A3386C] rounded-lg focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-gray-700 text-base"
                                 autoFocus
                             />
                             
