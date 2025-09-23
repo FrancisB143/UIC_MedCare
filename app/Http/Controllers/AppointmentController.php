@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Appointment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AppointmentController extends Controller
 {
@@ -118,71 +120,5 @@ class AppointmentController extends Controller
             ]
         ]);
     }
-    {
-        // Only nurses can view appointments
-        abort_if(auth()->user()->role !== 'nurse', 403);
 
-        $appointments = auth()->user()->nurse->appointments()
-            ->with('patient')
-            ->latest()
-            ->paginate(10);
-
-        return inertia('Appointments/Index', [
-            'appointments' => $appointments
-        ]);
-    }
-
-    public function create()
-    {
-        // Only nurses can create appointments
-        abort_if(auth()->user()->role !== 'nurse', 403);
-
-        return inertia('Appointments/Create');
-    }
-
-    public function store(Request $request)
-    {
-        // Only nurses can create appointments
-        abort_if(auth()->user()->role !== 'nurse', 403);
-
-        $validated = $request->validate([
-            'patient_id' => 'required|exists:patients,id',
-            'schedule_date' => 'required|date|after:now',
-            'reason' => 'required|string'
-        ]);
-
-        $appointment = auth()->user()->nurse->appointments()->create([
-            'patient_id' => $validated['patient_id'],
-            'schedule_date' => $validated['schedule_date'],
-            'reason' => $validated['reason'],
-            'status' => 'pending'
-        ]);
-
-        return redirect()->route('appointments.index')
-            ->with('success', 'Appointment scheduled successfully');
-    }
-
-    public function update(Appointment $appointment, Request $request)
-    {
-        // Only nurses can update appointments
-        abort_if(auth()->user()->role !== 'nurse', 403);
-
-        $validated = $request->validate([
-            'status' => 'required|in:completed,cancelled'
-        ]);
-
-        $appointment->update($validated);
-
-        return back()->with('success', 'Appointment updated successfully');
-    }
-
-    public function destroy(Appointment $appointment)
-    {
-        // Only nurses can cancel appointments
-        abort_if(auth()->user()->role !== 'nurse', 403);
-
-        $appointment->update(['status' => 'cancelled']);
-
-        return back()->with('success', 'Appointment cancelled successfully');
-    }
 }

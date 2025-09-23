@@ -3,7 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Consultation;
+use App\Models\Doctor;
+use App\Models\MedicalHistory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class ConsultationController extends Controller
 {
@@ -26,8 +31,32 @@ class ConsultationController extends Controller
                 ->paginate(10);
         }
 
-        return inertia('Consultations/Index', [
-            'consultations' => $consultations
+        return response()->json($consultations);
+    }
+
+    public function statistics()
+    {
+        abort_if(!in_array(auth()->user()->role, ['doctor', 'nurse']), 403);
+
+        $startOfWeek = now()->startOfWeek();
+        $startOfMonth = now()->startOfMonth();
+
+        return response()->json([
+            'total' => Consultation::count(),
+            'this_week' => [
+                'total' => Consultation::where('created_at', '>=', $startOfWeek)->count(),
+                'by_status' => Consultation::where('created_at', '>=', $startOfWeek)
+                    ->select('status', DB::raw('count(*) as count'))
+                    ->groupBy('status')
+                    ->get()
+            ],
+            'this_month' => [
+                'total' => Consultation::where('created_at', '>=', $startOfMonth)->count(),
+                'by_status' => Consultation::where('created_at', '>=', $startOfMonth)
+                    ->select('status', DB::raw('count(*) as count'))
+                    ->groupBy('status')
+                    ->get()
+            ]
         ]);
     }
 
