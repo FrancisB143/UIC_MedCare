@@ -19,8 +19,8 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
-        'email',
-        'password',
+        'email',    // Google email
+        'role',     // 'doctor', 'nurse', 'student', 'employee'
     ];
 
     /**
@@ -44,5 +44,31 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    // Relationships
+    public function doctor()
+    {
+        return $this->hasOne(Doctor::class);
+    }
+
+    public function nurse()
+    {
+        return $this->hasOne(Nurse::class);
+    }
+
+    public function patient()
+    {
+        return $this->hasOne(Patient::class);
+    }
+
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class);
+    }
+
+    public function loginAudits()
+    {
+        return $this->hasMany(LoginAudit::class);
     }
 }

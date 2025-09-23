@@ -2,15 +2,57 @@
 
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ConsultationController;
+use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\PatientController;
+use App\Http\Controllers\MedicalHistoryController;
+use App\Http\Controllers\Auth\GoogleLoginController;
 
+// Authentication Routes
 Route::get('/', function () {
     return Inertia::render('Login');
 })->name('login');
 
+Route::get('/auth/google', [GoogleLoginController::class, 'redirect'])->name('google.login');
+Route::get('/auth/google/callback', [GoogleLoginController::class, 'callback'])->name('google.callback');
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->name('dashboard');
+
+// Protected Routes
+Route::middleware(['auth'])->group(function () {
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Patient Routes
+    Route::prefix('patients')->group(function () {
+        Route::get('/', [PatientController::class, 'index'])->name('patients.index');
+        Route::get('/search', [PatientController::class, 'search'])->name('patients.search');
+        Route::get('/{patient}', [PatientController::class, 'show'])->name('patients.show');
+        Route::post('/', [PatientController::class, 'store'])->name('patients.store');
+    });
+
+    // Consultation Routes
+    Route::prefix('consultations')->group(function () {
+        Route::get('/', [ConsultationController::class, 'index'])->name('consultations.index');
+        Route::get('/create', [ConsultationController::class, 'create'])->name('consultations.create');
+        Route::post('/', [ConsultationController::class, 'store'])->name('consultations.store');
+        Route::get('/{consultation}', [ConsultationController::class, 'show'])->name('consultations.show');
+        Route::post('/{consultation}/refer', [ConsultationController::class, 'refer'])->name('consultations.refer');
+        Route::post('/{consultation}/doctor-remarks', [ConsultationController::class, 'addDoctorRemarks'])->name('consultations.remarks');
+    });
+
+    // Appointment Routes
+    Route::prefix('appointments')->group(function () {
+        Route::get('/', [AppointmentController::class, 'index'])->name('appointments.index');
+        Route::get('/create', [AppointmentController::class, 'create'])->name('appointments.create');
+        Route::post('/', [AppointmentController::class, 'store'])->name('appointments.store');
+        Route::put('/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
+        Route::delete('/{appointment}', [AppointmentController::class, 'destroy'])->name('appointments.destroy');
+    });
+
+    // Medical History Routes
+    Route::get('/medical-history/{patient}', [MedicalHistoryController::class, 'index'])->name('medical-history.index');
+});
 
 Route::get('/search/student', fn() => Inertia::render('Search/Student'));
 Route::get('/search/employee', fn() => Inertia::render('Search/Employee'));
