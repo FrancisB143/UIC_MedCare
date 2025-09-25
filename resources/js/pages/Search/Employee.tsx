@@ -26,9 +26,7 @@ const Employee: React.FC = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
-    const notifications: NotificationType[] = [
-        { id: 1, type: 'info', message: 'New consultation assigned', isRead: false, createdAt: new Date().toISOString() }
-    ];
+    // NotificationBell will fetch notifications itself
 
     // Get employee data from centralized mock data
     const employees = getEmployees();
@@ -73,7 +71,7 @@ const Employee: React.FC = () => {
                             <img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
-                        <NotificationBell notifications={notifications} onSeeAll={() => handleNavigation('../Notification')} />
+                        <NotificationBell onSeeAll={() => handleNavigation('../Notification')} />
                     </div>
                 </header>
 

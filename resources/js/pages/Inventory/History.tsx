@@ -29,13 +29,6 @@ const History: React.FC = () => {
     const [historyLogs, setHistoryLogs] = useState<HistoryLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<any>(null);
-    const [notifications, setNotifications] = useState<NotificationType[]>([]);
-
-    // Sample dummy notifications
-    const dummyNotifications: NotificationType[] = [
-        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
-        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
-    ];
 
     // Load current user
     useEffect(() => {
@@ -71,22 +64,10 @@ const History: React.FC = () => {
     useEffect(() => {
         if (currentUser) {
             loadHistoryData();
-            loadNotifications();
         }
     }, [currentUser]);
 
-    // Load notifications from localStorage and dummy data
-    const loadNotifications = () => {
-        const localNotifications = NotificationService.loadNotifications();
-        const allNotifications = [...dummyNotifications, ...localNotifications];
-        setNotifications(allNotifications);
-    };
-
-    // Mark notifications as read
-    const markNotificationsAsRead = () => {
-        NotificationService.markAllAsRead();
-        setNotifications([]);
-    };
+    // NotificationBell handles loading and marking notifications; local dummy data removed
 
     // Filter and sort the history logs
     const getFilteredAndSortedHistoryLogs = () => {
@@ -200,12 +181,8 @@ const History: React.FC = () => {
                             <img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
-                        {/* Notification Bell */}
-                        <NotificationBell
-                            notifications={notifications}
-                            onSeeAll={() => handleNavigation('../Notification')}
-                            onMarkAsRead={markNotificationsAsRead}
-                        />
+                        {/* Notification Bell (self-fetching) */}
+                        <NotificationBell onSeeAll={() => handleNavigation('../Notification')} />
                     </div>
                 </header>
 

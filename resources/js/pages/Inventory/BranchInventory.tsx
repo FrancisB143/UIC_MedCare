@@ -72,10 +72,7 @@ const BranchInventoryPage: React.FC = () => {
     const [isArchivedModalOpen, setArchivedModalOpen] = useState(false);
     const [archivedMedicines, setArchivedMedicines] = useState<any[]>([]);
 
-    const notifications: NotificationType[] = [
-        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
-        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
-    ];
+    const [notificationsState, setNotificationsState] = useState<NotificationType[]>([]);
 
     // HELPER FUNCTIONS
     function getCurrentDateTime(): DateTimeData {
@@ -137,19 +134,32 @@ const BranchInventoryPage: React.FC = () => {
     // Check for low stock medicines when branchInventory changes
     useEffect(() => {
         if (branchInventory.length > 0) {
-            checkLowStockMedicines().then(async (lowStock) => {
-                setLowStockMedicines(lowStock);
-                
-                // Create notifications for newly low stock medicines
-                for (const medicine of lowStock) {
-                    NotificationService.createNotification(
-                        `Low Stock Alert: ${medicine.medicine_name} has only ${medicine.current_stock} units remaining`,
-                        'warning'
-                    );
-                }
+            checkLowStockMedicines().then((lowStock) => {
+                // Normalize low stock objects so NotificationBell receives a numeric `quantity` field
+                const normalized = lowStock.map(ls => ({
+                    medicine_id: ls.medicine_id,
+                    medicine_name: ls.medicine_name,
+                    quantity: typeof ls.current_stock === 'number' ? ls.current_stock : (ls.current_stock ? Number(ls.current_stock) : 0),
+                    minimum_level: ls.minimum_level
+                }));
+
+                setLowStockMedicines(normalized);
             });
         }
     }, [branchInventory]);
+
+    // NotificationBell will load notifications for this branch; no need to fetch here
+
+    // NotificationBell will handle marking notifications read; keep local stub for compatibility
+    const handleMarkNotificationsRead = async () => {
+        if (!branchInfo) return;
+        try {
+            await BranchInventoryService.markNotificationsRead(branchInfo.branch_id);
+            setNotificationsState(prev => prev.map(n => ({ ...n, isRead: true })));
+        } catch (err) {
+            console.warn('Failed to mark notifications read', err);
+        }
+    };
 
     const { date, time } = dateTime;
 
@@ -805,9 +815,9 @@ const BranchInventoryPage: React.FC = () => {
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
                         <NotificationBell
-                            notifications={notifications}
                             lowStockMedicines={lowStockMedicines}
                             onSeeAll={() => handleNavigation('/Notification')}
+                            onMarkAsRead={handleMarkNotificationsRead}
                         />
                     </div>
                 </header>

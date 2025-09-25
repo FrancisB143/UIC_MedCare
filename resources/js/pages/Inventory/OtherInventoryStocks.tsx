@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import RequestMedicineModal from '../../components/RequestMedicineModal';
+import Swal from 'sweetalert2';
 import OtherInventoryTable from '../../components/OtherInventoryTable';
 import NotificationBell, { Notification as NotificationType } from '../../components/NotificationBell';
 import Sidebar from '../../components/Sidebar';
@@ -37,16 +38,15 @@ const OtherBranchInventoryPage: React.FC = () => {
     const [branch, setBranch] = useState<SimpleBranch | null>(null);
 
     const [medicines, setMedicines] = useState<BranchInventoryItem[]>([]);
+    const [pendingRequests, setPendingRequests] = useState<any[]>([]);
     const [inventoryLoading, setInventoryLoading] = useState(false);
     const [inventoryError, setInventoryError] = useState<string | null>(null);
     // State to show request modal
     const [isRequestModalOpen, setRequestModalOpen] = useState(false);
 
     
-    const notifications: NotificationType[] = [
-        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
-        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
-    ];
+    // NotificationBell will fetch notifications itself. We still keep pendingRequests state here
+    // and provide approve/reject handlers to the bell so it can trigger actions when needed.
 
 
     useEffect(() => {
@@ -65,6 +65,18 @@ const OtherBranchInventoryPage: React.FC = () => {
 
                 // Get other branch inventory from backend (MSSQL)
                 const otherInventory = await BranchInventoryService.getBranchInventory(branchId);
+
+                // Load pending requests for current user's branch (requests directed to this branch)
+                try {
+                    const currentUser = UserService.getCurrentUser();
+                    if (currentUser && currentUser.branch_id) {
+                        const pending = await BranchInventoryService.getPendingBranchRequests(Number(currentUser.branch_id));
+                        setPendingRequests(pending || []);
+                    }
+                } catch (e) {
+                    console.warn('Failed to load pending requests', e);
+                    setPendingRequests([]);
+                }
 
                 // Get current user's branch inventory from backend
                 const userInventory = await BranchInventoryService.getBranchInventory(currentUser.branch_id);
@@ -260,9 +272,45 @@ const OtherBranchInventoryPage: React.FC = () => {
     }
 
     // Handler for request modal submission
-    const handleRequestSubmit = (data: { medicineId: number; expirationDate: string; quantity: number }) => {
+    const handleRequestSubmit = async (data: { medicineId: number; expirationDate: string; quantity: number }) => {
+        // Close modal immediately (modal also closes itself) and start handling
         setRequestModalOpen(false);
-        // TODO: handle request logic (API call, UI update, etc.)
+
+        // Ensure we have a logged-in user
+        const currentUser = (await import('../../services/userService').then(m => m.UserService)).getCurrentUser();
+        if (!currentUser || !currentUser.branch_id) {
+            Swal.fire({ icon: 'error', title: 'Request Failed', text: 'Unable to determine your branch. Please log in again.' });
+            return;
+        }
+
+        // Find medicine name for nicer messages
+        const med = medicines.find(m => Number(m.medicine_id) === Number(data.medicineId));
+        const medName = med?.medicine_name || `Medicine ${data.medicineId}`;
+
+        try {
+            // Create branch request: from current user's branch -> the branch being viewed (branchId)
+            const result = await BranchInventoryService.createBranchRequest(
+                Number(currentUser.branch_id),
+                Number(branchId),
+                Number(data.medicineId),
+                Number(data.quantity),
+                Number(currentUser.user_id)
+            );
+
+            if (!result.success) {
+                throw new Error(result.message || 'Failed to create branch request');
+            }
+
+            // Create a notification for the target branch
+            const message = `${currentUser.branch_name || 'A branch'} requested ${data.quantity} unit${data.quantity > 1 ? 's' : ''} of ${medName}`;
+            await BranchInventoryService.createNotification(Number(branchId), null, 'request', message);
+
+            // Show success to the requester
+            Swal.fire({ icon: 'success', title: 'Request Sent', text: `Your request for ${data.quantity} ${medName} was sent to ${branch?.name || 'the branch'}.` });
+        } catch (err: any) {
+            console.error('Failed to submit branch request:', err);
+            Swal.fire({ icon: 'error', title: 'Request Failed', text: err?.message || 'Failed to send request. Please try again.' });
+        }
     };
 
     return (
@@ -288,8 +336,46 @@ const OtherBranchInventoryPage: React.FC = () => {
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
                         <NotificationBell
-                            notifications={notifications}
                             onSeeAll={() => handleNavigation('/Notification')}
+                            onApproveRequest={async (requestId: number) => {
+                                // confirm approve
+                                const currentUser = UserService.getCurrentUser();
+                                if (!currentUser || !currentUser.user_id) {
+                                    Swal.fire({ icon: 'error', title: 'Action Failed', text: 'Unable to determine current user.' });
+                                    return;
+                                }
+                                const ok = await BranchInventoryService.approveBranchRequest(requestId, Number(currentUser.user_id));
+                                if (ok) {
+                                    Swal.fire({ icon: 'success', title: 'Approved', text: 'Request approved.' });
+                                    // refresh pending requests
+                                    const pending = await BranchInventoryService.getPendingBranchRequests(Number(currentUser.branch_id));
+                                    setPendingRequests(pending || []);
+                                } else {
+                                    Swal.fire({ icon: 'error', title: 'Failed', text: 'Failed to approve request.' });
+                                }
+                            }}
+                            onRejectRequest={async (requestId: number) => {
+                                const currentUser = UserService.getCurrentUser();
+                                if (!currentUser || !currentUser.user_id) {
+                                    Swal.fire({ icon: 'error', title: 'Action Failed', text: 'Unable to determine current user.' });
+                                    return;
+                                }
+                                const { value: reason } = await Swal.fire({
+                                    title: 'Reject Reason (optional)',
+                                    input: 'text',
+                                    inputPlaceholder: 'Reason for rejection',
+                                    showCancelButton: true
+                                });
+                                if (reason === null) return; // cancelled
+                                const ok = await BranchInventoryService.rejectBranchRequest(requestId, Number(currentUser.user_id), reason || undefined);
+                                if (ok) {
+                                    Swal.fire({ icon: 'success', title: 'Rejected', text: 'Request rejected.' });
+                                    const pending = await BranchInventoryService.getPendingBranchRequests(Number(currentUser.branch_id));
+                                    setPendingRequests(pending || []);
+                                } else {
+                                    Swal.fire({ icon: 'error', title: 'Failed', text: 'Failed to reject request.' });
+                                }
+                            }}
                         />
                     </div>
                 </header>

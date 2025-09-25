@@ -3,9 +3,9 @@ import { router } from '@inertiajs/react';
 import { Menu, AlertTriangle } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import NotificationBell, { Notification as NotificationType } from '../components/NotificationBell';
-import { supabase } from '../lib/supabaseClient';
 import { UserService } from '../services/userService';
 import { NotificationService } from '../services/notificationService';
+import { BranchInventoryService } from '../services/branchInventoryService';
 
 // A more detailed interface for the full notification page
 interface FullNotification {
@@ -49,125 +49,15 @@ const Notification: React.FC = () => {
     const [bellNotifications, setBellNotifications] = useState<NotificationType[]>([]);
     const [fullNotifications, setFullNotifications] = useState<FullNotification[]>([]);
 
-    // Sample dummy notifications similar to notification bell
-    const dummyNotifications: NotificationType[] = [
-        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
-        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
-    ];
-
-    // Initialize with dummy notifications on component mount
-    useEffect(() => {
-        // Create initial dummy notifications for display
-        const initialDummy: FullNotification[] = dummyNotifications.map(notif => {
-            let icon;
-            let title;
-            
-            switch(notif.type) {
-                case 'info':
-                    icon = (
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
-                            <img src="/images/medicine.jpg" alt="Medicine Icon" className="w-full h-full object-cover" />
-                        </div>
-                    );
-                    title = 'Medicine Update';
-                    break;
-                case 'success':
-                    icon = (
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
-                            <img src="/images/nurse.jpg" alt="Request Icon" className="w-full h-full object-cover" />
-                        </div>
-                    );
-                    title = 'Request Received';
-                    break;
-                default:
-                    icon = (
-                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                            <AlertTriangle className="w-6 h-6 text-gray-600" />
-                        </div>
-                    );
-                    title = 'Notification';
-            }
-            
-            return {
-                id: notif.id,
-                title,
-                message: notif.message,
-                time: new Date(notif.createdAt).toLocaleDateString(),
-                icon
-            };
-        });
-        
-        setFullNotifications(initialDummy);
-    }, []);
-
-    // Check for low stock medicines based on reorder levels
+    // Check for low stock medicines by calling backend API
     const checkLowStockMedicines = async () => {
         try {
             setIsLoading(true);
-            
-            // TODO: Replace with MSSQL API call for stock levels
-            // For now, return empty array to fix compilation errors
-            console.log('Low stock checking temporarily disabled - needs MSSQL API integration');
-            return [];
+            const currentUser = UserService.getCurrentUser();
+            if (!currentUser || !currentUser.branch_id) return [];
+            const low = await BranchInventoryService.getLowStockMedicinesMSSQL(currentUser.branch_id).catch(() => []);
+            return Array.isArray(low) ? low : [];
 
-            /* Commented out until MSSQL API integration is complete
-            // Get all current stock levels by summing quantities for each medicine
-            const { data: stockRecords, error: stockError } = await supabase
-                .from('medicine_stock_in')
-                .select('medicine_id, quantity');
-
-            if (stockError) {
-                console.error('Error loading stock records:', stockError);
-                return [];
-            }
-
-            // Calculate total quantities for each medicine
-            const currentStockLevels = stockRecords?.reduce((acc: any, record: any) => {
-                const medicineId = record.medicine_id;
-                const quantity = record.quantity || 0;
-                
-                if (acc[medicineId]) {
-                    acc[medicineId] += quantity;
-                } else {
-                    acc[medicineId] = quantity;
-                }
-                return acc;
-            }, {} as Record<number, number>) || {};
-
-            // Get reorder levels from medicine_reorder_levels table
-            const { data: reorderLevels, error: reorderError } = await supabase
-                .from('medicine_reorder_levels')
-                .select(`
-                    medicine_id,
-                    minimum_stock_level,
-                    medicines (
-                        medicine_name
-                    )
-                `);
-
-            if (reorderError) {
-                console.error('Error loading reorder levels:', reorderError);
-                return [];
-            }
-
-            // Find medicines that are below their reorder level
-            const lowStockMedicines = [];
-            for (const reorderLevel of reorderLevels || []) {
-                const currentStock = currentStockLevels[reorderLevel.medicine_id] || 0;
-                const minimumLevel = reorderLevel.minimum_stock_level || 50;
-                
-                if (currentStock <= minimumLevel) {
-                    lowStockMedicines.push({
-                        medicine_id: reorderLevel.medicine_id,
-                        medicine_name: (reorderLevel.medicines as any)?.medicine_name,
-                        current_stock: currentStock,
-                        minimum_level: minimumLevel
-                    });
-                }
-            }
-
-            return lowStockMedicines;
-            */
         } catch (error) {
             console.error('Error checking low stock medicines:', error);
             return [];
@@ -176,159 +66,91 @@ const Notification: React.FC = () => {
         }
     };
 
-    // Close dropdowns on mount and load notifications
+    // Close dropdowns on mount and load notifications from backend
     useEffect(() => {
         setSearchOpen(false);
         setInventoryOpen(false);
-        
-        // Always load dummy notifications first
-        loadNotifications();
-        
-        // Load low stock medicines
-        checkLowStockMedicines().then(lowStock => {
+
+        const loadAll = async () => {
+            const currentUser = UserService.getCurrentUser();
+            if (!currentUser || !currentUser.branch_id) return;
+            const branchId = currentUser.branch_id;
+
+            // fetch low stock medicines from backend
+            const lowStock = await checkLowStockMedicines().catch(() => []);
             setLowStockMedicines(lowStock);
-            // Reload notifications after low stock data is available
-            setTimeout(() => loadNotifications(), 100);
-        });
+
+            // fetch notifications for bell/full page
+            const rows = await BranchInventoryService.getNotifications(branchId).catch(() => []);
+            const bellNotifs = (rows || []).map((r: any) => ({
+                id: r.notification_id ?? r.id ?? Math.random().toString(36).slice(2),
+                type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' ? 'request' : 'info')) as any,
+                message: r.message ?? '',
+                isRead: !!r.is_read,
+                createdAt: r.created_at ?? new Date().toISOString(),
+                requestId: r.request_id ?? undefined,
+                requestStatus: r.request_status ?? undefined,
+            })) as NotificationType[];
+            setBellNotifications(bellNotifs);
+
+            // Build fullNotifications for the main page using the same data but with icons and titles
+            const full = (bellNotifs || []).map(n => {
+                let icon: React.ReactNode;
+                let title = 'Notification';
+                if (n.type === 'warning') { title = 'Low Stock Alert'; icon = <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center"><AlertTriangle className="w-6 h-6 text-red-600" /></div>; }
+                else if (n.type === 'success') { title = 'Success'; icon = <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center" />; }
+                else if (n.type === 'request') { title = 'Branch Request'; icon = <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center" />; }
+                else { title = 'Notification'; icon = <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center"><AlertTriangle className="w-6 h-6 text-gray-600" /></div>; }
+
+                return {
+                    id: n.id,
+                    title,
+                    message: n.message,
+                    time: new Date(n.createdAt).toLocaleDateString(),
+                    icon
+                } as FullNotification;
+            });
+            setFullNotifications(full);
+
+            // Additionally, fetch pending branch requests so they can be displayed as well
+            const pending = await BranchInventoryService.getPendingBranchRequests(branchId).catch(() => []);
+            if (Array.isArray(pending) && pending.length > 0) {
+                const pendingNotifs = pending.map((p: any) => ({
+                    id: `req-${p.branch_request_id}`,
+                    title: 'Branch Request',
+                    message: `${p.requesting_branch_name ?? `Branch ${p.from_branch_id}`} requested ${p.quantity} of ${p.medicine_name}`,
+                    time: new Date(p.created_at ?? Date.now()).toLocaleDateString(),
+                    icon: <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center" />
+                } as FullNotification));
+
+                setFullNotifications(prev => [...pendingNotifs, ...prev]);
+            }
+        };
+
+        loadAll();
     }, []);
 
-    // Generate low stock notifications from lowStockMedicines
-    const generateLowStockNotifications = (): NotificationType[] => {
-        if (lowStockMedicines.length === 0) return [];
-        
-        const currentTime = new Date().toISOString();
-        return lowStockMedicines.map((medicine) => ({
-            id: `low-stock-${medicine.medicine_id}`,
-            type: 'warning' as const,
-            message: `Low Stock Alert: ${medicine.medicine_name} has only ${medicine.current_stock} units remaining`,
-            isRead: false,
-            createdAt: currentTime
-        }));
-    };
+    // loadNotifications is handled by the useEffect above which queries the backend
 
-    // Combine dummy notifications with low stock notifications
-    const getAllNotifications = (): NotificationType[] => {
-        const lowStockNotifs = generateLowStockNotifications();
-        return [...dummyNotifications, ...lowStockNotifs];
-    };
-
-    // Load notifications from localStorage and dummy data
-    const loadNotifications = () => {
+    // Mark notifications as read: call backend and clear bell notifications
+    const markNotificationsAsRead = async () => {
         try {
-            const allNotifications = getAllNotifications();
-            setBellNotifications(allNotifications);
-            
-            // Create detailed notifications for the main page
-            const detailed: FullNotification[] = allNotifications.map(notif => {
-                let icon;
-                let title;
-                
-                switch(notif.type) {
-                    case 'warning':
-                        icon = (
-                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                                <AlertTriangle className="w-6 h-6 text-red-600" />
-                            </div>
-                        );
-                        title = 'Low Stock Alert';
-                        break;
-                    case 'info':
-                        icon = (
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
-                                <img src="/images/medicine.jpg" alt="Medicine Icon" className="w-full h-full object-cover" />
-                            </div>
-                        );
-                        title = 'Medicine Update';
-                        break;
-                    case 'success':
-                        icon = (
-                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
-                                <img src="/images/nurse.jpg" alt="Request Icon" className="w-full h-full object-cover" />
-                            </div>
-                        );
-                        title = 'Request Received';
-                        break;
-                    default:
-                        icon = (
-                            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                                <AlertTriangle className="w-6 h-6 text-gray-600" />
-                            </div>
-                        );
-                        title = 'Notification';
-                }
-                
-                return {
-                    id: notif.id,
-                    title,
-                    message: notif.message,
-                    time: new Date(notif.createdAt).toLocaleDateString(),
-                    icon
-                };
-            });
-            
-            setFullNotifications(detailed);
-        } catch (error) {
-            console.error('Error loading notifications:', error);
+            const currentUser = UserService.getCurrentUser();
+            if (!currentUser || !currentUser.branch_id) return;
+            await BranchInventoryService.markNotificationsRead(currentUser.branch_id).catch(() => {});
+            setBellNotifications([]);
+        } catch (err) {
+            console.error('Error marking notifications read', err);
         }
-    };
-
-    // Mark notifications as read
-    const markNotificationsAsRead = () => {
-        setBellNotifications([]);
-        // Keep dummy notifications visible in the main page
-        const dummyDetailed: FullNotification[] = dummyNotifications.map(notif => {
-            let icon;
-            let title;
-            
-            switch(notif.type) {
-                case 'info':
-                    icon = (
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
-                            <img src="/images/medicine.jpg" alt="Medicine Icon" className="w-full h-full object-cover" />
-                        </div>
-                    );
-                    title = 'Medicine Update';
-                    break;
-                case 'success':
-                    icon = (
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
-                            <img src="/images/nurse.jpg" alt="Request Icon" className="w-full h-full object-cover" />
-                        </div>
-                    );
-                    title = 'Request Received';
-                    break;
-                default:
-                    icon = (
-                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                            <AlertTriangle className="w-6 h-6 text-gray-600" />
-                        </div>
-                    );
-                    title = 'Notification';
-            }
-            
-            return {
-                id: notif.id,
-                title,
-                message: notif.message,
-                time: new Date(notif.createdAt).toLocaleDateString(),
-                icon
-            };
-        });
-        setFullNotifications(dummyDetailed);
     };
 
     useEffect(() => {
-        // Load notifications when component mounts and when low stock data changes
-        if (lowStockMedicines.length >= 0) { // Check for array (even if empty)
-            loadNotifications();
-        }
-        
         // Update time every second
         const timer = setInterval(() => {
             setDateTime(getCurrentDateTime());
         }, 1000);
         return () => clearInterval(timer);
-    }, [lowStockMedicines]); // Add lowStockMedicines as dependency
+    }, []);
 
     const handleNavigation = (path: string): void => {
         router.visit(path);

@@ -96,7 +96,7 @@ const WalkIn: React.FC = () => {
                             <button onClick={toggleSidebar} className="text-white p-2 rounded-full hover:bg-white/20"><Menu className="w-6 h-6" /></button>
                         </div>
                         <div className="flex items-center"><img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/><h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1></div>
-                        <NotificationBell notifications={notifications} onSeeAll={() => router.visit('../Notification')} />
+                        <NotificationBell onSeeAll={() => router.visit('../Notification')} />
                     </div>
                 </header>
 

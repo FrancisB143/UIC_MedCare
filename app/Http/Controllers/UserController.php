@@ -405,16 +405,16 @@ class UserController extends Controller
 
             Log::info("Stock out data fetched: " . count($stockOutData) . " records");
 
-            // Get all deleted medicine records for this branch if the table exists
-            if (Schema::hasTable('medicine_deleted')) {
-                $deletedData = DB::table('medicine_deleted')
+            // Get all archived medicine records for this branch if the table exists
+            if (Schema::hasTable('medicine_archived')) {
+                $deletedData = DB::table('medicine_archived')
                     ->select('medicine_stock_in_id', 'quantity')
                     ->where('branch_id', $branchId)
                     ->get();
 
-                Log::info("Deleted data fetched: " . count($deletedData) . " records");
+                Log::info("Archived data fetched: " . count($deletedData) . " records");
             } else {
-                Log::warning("medicine_deleted table not found - treating deletedData as empty for branch ID: {$branchId}");
+                Log::warning("medicine_archived table not found - treating deletedData as empty for branch ID: {$branchId}");
                 $deletedData = collect();
             }
 
@@ -430,14 +430,16 @@ class UserController extends Controller
             }
 
             $deletedMap = [];
-            foreach ($deletedData as $record) {
-                $stockInId = $record->medicine_stock_in_id;
-                if (isset($deletedMap[$stockInId])) {
-                    $deletedMap[$stockInId] += $record->quantity;
-                } else {
-                    $deletedMap[$stockInId] = $record->quantity;
+                if (Schema::hasTable('medicine_archived')) {
+                    foreach ($deletedData as $record) {
+                        $stockInId = $record->medicine_stock_in_id;
+                        if (isset($deletedMap[$stockInId])) {
+                            $deletedMap[$stockInId] += $record->quantity;
+                        } else {
+                            $deletedMap[$stockInId] = $record->quantity;
+                        }
+                    }
                 }
-            }
 
             // Calculate available quantities and build result
             $result = [];
@@ -650,7 +652,7 @@ class UserController extends Controller
                     ->sum('quantity_dispensed') ?: 0;
 
                 // Get total deleted for this stock in record
-                $totalDeleted = DB::table('medicine_deleted')
+                $totalDeleted = DB::table('medicine_archived')
                     ->where('medicine_stock_in_id', $stockIn->medicine_stock_in_id)
                     ->sum('quantity') ?: 0;
 
@@ -721,7 +723,7 @@ class UserController extends Controller
                 ->where('medicine_stock_in_id', $medicineStockInId)
                 ->sum('quantity_dispensed') ?: 0;
 
-            $totalDeleted = DB::table('medicine_deleted')
+            $totalDeleted = DB::table('medicine_archived')
                 ->where('medicine_stock_in_id', $medicineStockInId)
                 ->sum('quantity') ?: 0;
 
@@ -814,7 +816,7 @@ class UserController extends Controller
                 ->where('medicine_stock_in_id', $medicineStockInId)
                 ->sum('quantity_dispensed') ?: 0;
 
-            $totalDeleted = DB::table('medicine_deleted')
+            $totalDeleted = DB::table('medicine_archived')
                 ->where('medicine_stock_in_id', $medicineStockInId)
                 ->sum('quantity') ?: 0;
 
@@ -911,12 +913,13 @@ class UserController extends Controller
             }
 
             // Insert record into medicine_deleted table
-            $deletedId = DB::table('medicine_deleted')->insertGetId([
+              // Insert record into medicine_archived table instead (medicine_deleted was dropped in DB schema)
+              $deletedId = DB::table('medicine_archived')->insertGetId([
                 'medicine_stock_in_id' => $validatedData['medicine_stock_in_id'],
                 'quantity' => $validatedData['quantity'],
                 'description' => $validatedData['description'],
                 'branch_id' => $validatedData['branch_id'],
-                'deleted_at' => now()
+                 'archived_at' => now()
             ]);
 
             // Update the medicine_stock_in quantity (reduce by deleted amount)
@@ -943,7 +946,7 @@ class UserController extends Controller
                 'success' => true,
                 'message' => 'Medicine deleted successfully',
                 'data' => [
-                    'medicine_deleted_id' => $deletedId,
+                    'medicine_archived_id' => $deletedId,
                     'remaining_quantity' => $newQuantity,
                     'deleted_quantity' => $validatedData['quantity']
                 ]
@@ -1319,14 +1322,51 @@ class UserController extends Controller
 
             Log::info("Found " . count($lowStockMedicines) . " low stock medicines");
 
-            return response()->json($lowStockMedicines->map(function($medicine) {
+            $results = $lowStockMedicines->map(function($medicine) {
                 return [
                     'medicine_id' => $medicine->medicine_id,
                     'medicine_name' => $medicine->medicine_name,
                     'medicine_category' => $medicine->medicine_category,
                     'quantity' => $medicine->total_quantity
                 ];
-            }));
+            })->toArray();
+
+            // Insert low-stock notifications only once per medicine per branch
+            try {
+                foreach ($results as $med) {
+                    $branchIdInt = intval($branchId);
+                    $medicineName = $med['medicine_name'];
+                    $medicineId = intval($med['medicine_id'] ?? 0);
+                    // Prevent duplicate low-stock notifications per branch + medicine using reference_id
+                    $exists = DB::table('notifications')
+                        ->where('branch_id', $branchIdInt)
+                        ->where('type', 'low_stock')
+                        ->where('reference_id', $medicineId)
+                        ->exists();
+
+                    if (!$exists) {
+                        // Format message as requested: title, "NAME: N units remaining", and date string on separate lines
+                        $title = 'Low Stock Alert';
+                        $line2 = sprintf('%s: %d units remaining', $medicineName, intval($med['quantity']));
+                        $dateStr = now()->format('n/j/Y'); // e.g. 9/25/2025
+                        // join with newline characters so the UI can render as multi-line if desired
+                        $message = $title . "\n" . $line2 . "\n" . $dateStr;
+
+                        DB::table('notifications')->insert([
+                            'branch_id' => $branchIdInt,
+                            'type' => 'low_stock',
+                            'message' => $message,
+                            'reference_id' => $medicineId,
+                            'is_read' => 0,
+                            'created_at' => now()
+                        ]);
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to insert low stock notifications: ' . $e->getMessage());
+            }
+
+            return response()->json($results);
 
         } catch (\Exception $e) {
             Log::error("Error getting low stock medicines: " . $e->getMessage());

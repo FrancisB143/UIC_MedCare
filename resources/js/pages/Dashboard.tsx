@@ -102,11 +102,7 @@ const Dashboard: React.FC = () => {
         }
     ];
 
-    // Dummy notifications for NotificationBell
-    const notifications: NotificationType[] = [
-        { id: 1, type: 'info', message: 'New medicine stock added', isRead: false, createdAt: new Date().toISOString() },
-        { id: 2, type: 'success', message: 'Request approved', isRead: false, createdAt: new Date(Date.now() - 3600 * 1000).toISOString() },
-    ];
+    // NotificationBell will fetch notifications itself; no local dummy data needed
 
     return (
         <div className="flex h-screen bg-gray-100">
@@ -129,7 +125,7 @@ const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between">
                         <button onClick={toggleSidebar} className="text-white p-2 rounded-full hover:bg-white/20"><Menu className="w-6 h-6" /></button>
                     <div className="flex items-center"><img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/><h1 className="text-white text-[28px] font-semibold">MEDICARE</h1></div>
-                    <div className="flex items-center"><NotificationBell notifications={notifications} onSeeAll={() => handleNavigation('../Notification')} /></div>
+                    <div className="flex items-center"><NotificationBell onSeeAll={() => handleNavigation('../Notification')} /></div>
                     </div>
                 </header>
 

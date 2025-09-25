@@ -179,9 +179,7 @@ const Chat: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const notifications: NotificationType[] = [
-        { id: 1, type: 'info', message: 'New chat started', isRead: false, createdAt: new Date().toISOString() },
-    ];
+    // NotificationBell will load notifications itself
 
     const handleNavigation = (path: string): void => {
         router.visit(path);
@@ -453,7 +451,7 @@ const Chat: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex items-center space-x-3">
-                            <NotificationBell notifications={notifications} onSeeAll={() => handleNavigation('../Notification')} />
+                            <NotificationBell onSeeAll={() => handleNavigation('../Notification')} />
                         </div>
                         
                     </div>

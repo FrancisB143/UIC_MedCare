@@ -475,6 +475,186 @@ export class BranchInventoryService {
         }
     }
 
+    // Create a notification row in the backend notifications table
+    static async createNotification(branchId: number, userId: number | null, type: string, message: string): Promise<boolean> {
+        try {
+            const response = await fetch('/api/notifications', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    branch_id: branchId,
+                    user_id: userId,
+                    type,
+                    message
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({ message: 'Unknown error' }));
+                throw new Error(err.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error creating notification:', error);
+            return false;
+        }
+    }
+
+    // Create a branch-to-branch stock request
+    static async createBranchRequest(fromBranchId: number, toBranchId: number, medicineId: number, quantityRequested: number, requestedBy?: number | null): Promise<{ success: boolean; message?: string }> {
+        try {
+            const response = await fetch('/api/branch-requests', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    from_branch_id: fromBranchId,
+                    to_branch_id: toBranchId,
+                    medicine_id: medicineId,
+                    quantity_requested: quantityRequested,
+                    requested_by: requestedBy ?? null
+                })
+            });
+
+            const body = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const msg = body?.message || body?.error || `HTTP error! status: ${response.status}`;
+                console.error('Error creating branch request (server):', msg);
+                return { success: false, message: msg };
+            }
+
+            // success - server may return a message
+            return { success: true, message: body?.message || 'Request created' };
+        } catch (error: any) {
+            console.error('Error creating branch request:', error);
+            return { success: false, message: error?.message || 'Unknown error' };
+        }
+    }
+
+    // Fetch notifications for a branch
+    static async getNotifications(branchId: number): Promise<any[]> {
+        try {
+            const response = await fetch(`/api/branches/${branchId}/notifications`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+            return [];
+        }
+    }
+
+    // Fetch pending branch requests directed to a branch
+    static async getPendingBranchRequests(branchId: number): Promise<any[]> {
+        try {
+            const response = await fetch(`/api/branches/${branchId}/branch-requests`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error('Error fetching pending branch requests:', error);
+            return [];
+        }
+    }
+
+    static async approveBranchRequest(requestId: number, confirmedBy: number): Promise<{ success: boolean; message?: string }> {
+        try {
+            const response = await fetch(`/api/branch-requests/${requestId}/approve`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify({ confirmed_by: confirmedBy })
+            });
+
+            const body = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const msg = body?.message || body?.error || `HTTP error! status: ${response.status}`;
+                return { success: false, message: msg };
+            }
+
+            return { success: true, message: body?.message };
+        } catch (error: any) {
+            console.error('Error approving branch request:', error);
+            return { success: false, message: error?.message || 'Unknown error' };
+        }
+    }
+
+    static async rejectBranchRequest(requestId: number, confirmedBy: number, reason?: string): Promise<{ success: boolean; message?: string }> {
+        try {
+            const response = await fetch(`/api/branch-requests/${requestId}/reject`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify({ confirmed_by: confirmedBy, reason: reason ?? null })
+            });
+
+            const body = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const msg = body?.message || body?.error || `HTTP error! status: ${response.status}`;
+                return { success: false, message: msg };
+            }
+
+            return { success: true, message: body?.message };
+        } catch (error: any) {
+            console.error('Error rejecting branch request:', error);
+            return { success: false, message: error?.message || 'Unknown error' };
+        }
+    }
+
+    // Mark notifications as read for a branch
+    static async markNotificationsRead(branchId: number): Promise<boolean> {
+        try {
+            const response = await fetch(`/api/branches/${branchId}/notifications/mark-read`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ branch_id: branchId })
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({ message: 'Unknown error' }));
+                throw new Error(err.message || `HTTP error! status: ${response.status}`);
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error marking notifications read:', error);
+            return false;
+        }
+    }
+
     // @deprecated - Use MSSQL API endpoint instead
     static async getBranchStockOutRecords(branchId: number): Promise<any[]> {
         console.warn('BranchInventoryService.getBranchStockOutRecords is deprecated. Use MSSQL API endpoint instead.');

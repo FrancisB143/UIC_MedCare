@@ -62,11 +62,7 @@ const Reports: React.FC = () => {
     // color palette to assign to medicines (will be used if DB color not provided)
     const colorPalette = ['#3B82F6','#F97316','#A855F7','#10B981','#F59E0B','#EF4444','#6366F1','#06B6D4','#F472B6','#84CC16'];
 
-    // Dummy data for the notification bell
-    const notifications: NotificationType[] = [
-        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
-        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
-    ];
+    // NotificationBell will fetch notifications itself
 
     // Navigation and logout handlers
     const handleNavigation = (path: string): void => {
@@ -167,7 +163,7 @@ const Reports: React.FC = () => {
                             <img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
-                        <NotificationBell notifications={notifications} onSeeAll={() => handleNavigation('../Notification')} />
+                        <NotificationBell onSeeAll={() => handleNavigation('../Notification')} />
                     </div>
                 </header>
                 <main id="printable-area" className="flex-1 p-6 overflow-y-auto bg-white">

@@ -146,10 +146,7 @@ const About: React.FC = () => {
                             <img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
-                        <NotificationBell
-                            notifications={notifications}
-                            onSeeAll={() => handleNavigation('../Notification')}
-                        />
+                            <NotificationBell />
                     </div>
                 </header>
 

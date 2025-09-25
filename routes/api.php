@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Api\MedicineController;
+use App\Http\Controllers\BranchRequestController;
+use App\Http\Controllers\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -53,6 +55,17 @@ Route::post('/branches/{branchId}/archived/{archivedId}/restore', [UserControlle
 Route::delete('/branches/{branchId}/archived/{archivedId}', [UserController::class, 'deleteArchivedMedicine']);
 // Endpoint to archive a medicine (move to medicine_archived)
 Route::post('/medicines/archive', [UserController::class, 'archiveMedicine']);
+
+// Branch requests and notifications
+Route::post('/branch-requests', [BranchRequestController::class, 'store']);
+Route::get('/branches/{branchId}/branch-requests', [BranchRequestController::class, 'index']);
+Route::post('/branch-requests/{requestId}/approve', [BranchRequestController::class, 'approve']);
+Route::post('/branch-requests/{requestId}/reject', [BranchRequestController::class, 'reject']);
+
+// Notifications endpoints
+Route::post('/notifications', [NotificationController::class, 'store']);
+Route::get('/branches/{branchId}/notifications', [NotificationController::class, 'index']);
+Route::post('/branches/{branchId}/notifications/mark-read', [NotificationController::class, 'markRead']);
 
 // The default user route can stay if you need it
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

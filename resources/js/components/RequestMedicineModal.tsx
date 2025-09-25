@@ -62,23 +62,25 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
     if (selectedMedicineId !== null) {
       const med = medicines.find((m) => Number(m.medicine_id) === Number(selectedMedicineId));
       if (med) {
-        // Use expiration_date field when available
+        // Populate available options but DO NOT auto-select or clear user selections.
         const exp = med.expiration_date || '';
-        setExpirationDates(exp ? [exp] : []);
-        setSelectedExpiration(exp || '');
-        // date received (may be empty)
-  const received = med.date_received || '';
-        setDateReceivedOptions(received ? [received] : []);
-        setSelectedDateReceived(received || '');
-        setMaxQuantity(Number(med.quantity ?? 0));
+        const newExpirationDates = exp ? [exp] : [];
+        setExpirationDates(newExpirationDates);
+
+        const received = med.date_received || '';
+        const newDateReceivedOptions = received ? [received] : [];
+        setDateReceivedOptions(newDateReceivedOptions);
+
+        const newMax = Number(med.quantity ?? 0);
+        setMaxQuantity(newMax);
+
+        // Keep user's selectedDateReceived/selectedExpiration/quantity as-is; validation will catch mismatches.
       } else {
+        // If medicine not found in current list, just clear available options but keep user inputs
         setExpirationDates([]);
-        setSelectedExpiration('');
         setDateReceivedOptions([]);
-        setSelectedDateReceived('');
         setMaxQuantity(0);
       }
-      setQuantity('');
     }
   }, [selectedMedicineId, medicines]);
 
@@ -169,10 +171,10 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
               <div>
                 <label className="font-semibold text-gray-700">Expiration Date</label>
                 <select
-                  className={`w-full mt-1 p-3 border ${errors.expiration ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent text-black`}
+                  className={`w-full mt-1 p-3 border ${errors.expiration ? 'border-red-500' : (expirationDates.length === 0 ? 'border-gray-200 bg-gray-50 text-gray-400' : 'border-gray-300 bg-white text-black')} rounded-md focus:ring-2 focus:ring-[#A3386C] focus:border-transparent`}
                   value={selectedExpiration}
                   onChange={e => setSelectedExpiration(e.target.value)}
-                  disabled={expirationDates.length === 0}
+                  disabled={expirationDates.length === 0 || !selectedDateReceived}
                 >
                   <option value="">Select expiration</option>
                   {expirationDates.map(date => (
@@ -180,6 +182,8 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
                   ))}
                 </select>
                 {errors.expiration && <p className="text-red-500 text-xs mt-1">{errors.expiration}</p>}
+                {/* show a small helper when expiration is locked */}
+                {/* helper text intentionally removed per UX request */}
               </div>
               <div>
                 <label className="font-semibold text-gray-700">Quantity</label>

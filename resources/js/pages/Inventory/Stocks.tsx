@@ -57,10 +57,7 @@ const StocksPage: React.FC = () => {
     // local inventory view removed; navigation to OtherInventoryStocks page is used instead
     const [loading, setLoading] = useState(true);
 
-    const notifications: NotificationType[] = [
-        { id: 1, type: 'info', message: 'Updated Medicine', isRead: false, createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
-        { id: 2, type: 'success', message: 'Medicine Request Received', isRead: false, createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString() },
-    ];
+    // NotificationBell will fetch notifications itself
 
     // Load branches on component mount
     useEffect(() => {
@@ -184,10 +181,7 @@ const StocksPage: React.FC = () => {
                             <img src="/images/Logo.png" alt="UIC Logo" className="w-15 h-15 mr-2"/>
                             <h1 className="text-white text-[28px] font-semibold">UIC MediCare</h1>
                         </div>
-                        <NotificationBell
-                            notifications={notifications}
-                            onSeeAll={() => handleNavigation('/Notification')}
-                        />
+                        <NotificationBell onSeeAll={() => handleNavigation('/Notification')} />
                     </div>
                 </header>
 
