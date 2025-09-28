@@ -61,6 +61,8 @@ Route::post('/branch-requests', [BranchRequestController::class, 'store']);
 Route::get('/branches/{branchId}/branch-requests', [BranchRequestController::class, 'index']);
 Route::post('/branch-requests/{requestId}/approve', [BranchRequestController::class, 'approve']);
 Route::post('/branch-requests/{requestId}/reject', [BranchRequestController::class, 'reject']);
+// History (approved/rejected) for branch requests involving a branch
+Route::get('/branches/{branchId}/branch-requests/history', [BranchRequestController::class, 'history']);
 
 // Notifications endpoints
 Route::post('/notifications', [NotificationController::class, 'store']);

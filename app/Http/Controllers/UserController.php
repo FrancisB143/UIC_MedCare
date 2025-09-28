@@ -521,23 +521,52 @@ class UserController extends Controller
 
             Log::info("Creating/getting medicine: {$medicineName}, Category: {$medicineCategory}");
 
-            // Check if medicine already exists
+            // Normalize inputs for a more robust duplicate check (trim + case-insensitive)
+            $normName = trim(mb_strtolower($medicineName));
+            $normCategory = trim(mb_strtolower($medicineCategory));
+
+            // First-pass lookup: try to find an existing medicine using normalized comparison
             $existingMedicine = DB::table('medicines')
                 ->select('medicine_id', 'medicine_name', 'medicine_category')
-                ->where('medicine_name', $medicineName)
-                ->where('medicine_category', $medicineCategory)
+                ->whereRaw('LOWER(LTRIM(RTRIM(medicine_name))) = ?', [$normName])
+                ->whereRaw('LOWER(LTRIM(RTRIM(medicine_category))) = ?', [$normCategory])
                 ->first();
 
             if ($existingMedicine) {
-                Log::info("Medicine already exists: " . json_encode($existingMedicine));
+                Log::info("Medicine already exists (normalized match): " . json_encode($existingMedicine));
                 return response()->json($existingMedicine);
             }
 
-            // Create new medicine
-            $medicineId = DB::table('medicines')->insertGetId([
-                'medicine_name' => $medicineName,
-                'medicine_category' => $medicineCategory
-            ]);
+            // Re-check/insert inside a short critical section to avoid race conditions
+            // (simple re-check before insert). This prevents duplicate rows if two
+            // concurrent requests attempt to create the same medicine.
+            $medicineId = null;
+            DB::beginTransaction();
+            try {
+                $existingMedicine = DB::table('medicines')
+                    ->select('medicine_id', 'medicine_name', 'medicine_category')
+                    ->whereRaw('LOWER(LTRIM(RTRIM(medicine_name))) = ?', [$normName])
+                    ->whereRaw('LOWER(LTRIM(RTRIM(medicine_category))) = ?', [$normCategory])
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($existingMedicine) {
+                    // Someone else inserted it while we were checking
+                    DB::commit();
+                    Log::info('Medicine created by concurrent request, returning existing.');
+                    return response()->json($existingMedicine);
+                }
+
+                $medicineId = DB::table('medicines')->insertGetId([
+                    'medicine_name' => $medicineName,
+                    'medicine_category' => $medicineCategory
+                ]);
+
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
 
             // Get the created medicine
             $newMedicine = DB::table('medicines')

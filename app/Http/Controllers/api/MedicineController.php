@@ -17,8 +17,10 @@ class MedicineController extends Controller
     {
         try {
             // Attempt to join the stock-out -> stock-in -> medicines tables.
-            // Optional filter by user_id (show only stock-outs performed by a specific user)
+            // Optional filters: user_id (who performed the stock-out), month and year
             $userId = $request->query('user_id');
+            $month = $request->query('month');
+            $year = $request->query('year');
 
             $query = DB::table('medicine_stock_out as mso')
                 ->join('medicine_stock_in as msi', 'msi.medicine_stock_in_id', '=', 'mso.medicine_stock_in_id')
@@ -32,6 +34,20 @@ class MedicineController extends Controller
 
             if ($userId) {
                 $query->where('mso.user_id', $userId);
+            }
+
+            // Filter by month/year of the timestamp_dispensed if provided.
+            // Accept numeric month (1-12) and numeric year (e.g., 2025).
+            if (!empty($month) && is_numeric($month)) {
+                $m = intval($month);
+                if ($m >= 1 && $m <= 12) {
+                    $query->whereRaw('MONTH(mso.timestamp_dispensed) = ?', [$m]);
+                }
+            }
+
+            if (!empty($year) && is_numeric($year)) {
+                $y = intval($year);
+                $query->whereRaw('YEAR(mso.timestamp_dispensed) = ?', [$y]);
             }
 
             $rows = $query

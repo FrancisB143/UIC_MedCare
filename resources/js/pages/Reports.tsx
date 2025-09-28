@@ -56,6 +56,8 @@ const Reports: React.FC = () => {
     const [chartData, setChartData] = useState<MedicineData[]>([]);
     const [loadingChart, setLoadingChart] = useState<boolean>(true);
     const [totalDispensed, setTotalDispensed] = useState<number>(0);
+    const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
     const fallbackData: MedicineData[] = [{ name: 'No data', medicine_stock_out: 0, color: '#E5E7EB' }];
 
@@ -89,7 +91,11 @@ const Reports: React.FC = () => {
             setLoadingChart(true);
             try {
         const currentUser = UserService.getCurrentUser();
-        const params = currentUser ? `?user_id=${currentUser.user_id}` : '';
+        const paramsArr: string[] = [];
+        if (currentUser) paramsArr.push(`user_id=${currentUser.user_id}`);
+        if (selectedMonth !== 'all') paramsArr.push(`month=${selectedMonth}`);
+        if (selectedYear) paramsArr.push(`year=${selectedYear}`);
+        const params = paramsArr.length > 0 ? `?${paramsArr.join('&')}` : '';
         const url = `${window.location.origin}/api/medicines/stock-out${params}`;
         console.debug('Fetching medicine stock-out from', url);
         const res = await fetch(url, { credentials: 'same-origin' });
@@ -130,7 +136,7 @@ const Reports: React.FC = () => {
                 }
 
                 setTotalDispensed(totalCount);
-                setChartData(withPercents as any);
+                        setChartData(withPercents as any);
             } catch (err) {
                 console.error('Failed to load chart data', err);
                 setChartData([]);
@@ -138,8 +144,9 @@ const Reports: React.FC = () => {
                 setLoadingChart(false);
             }
         };
-        fetchData();
-    }, []);
+                fetchData();
+            // refetch whenever month/year selection changes
+            }, [selectedMonth, selectedYear]);
 
     return (
         <div className="flex h-screen bg-gray-100">
@@ -185,6 +192,25 @@ const Reports: React.FC = () => {
                                 </div>
                                 <div className="mb-6">
                                     <p className="text-sm text-gray-500 mb-2">Used Medicine (Stock-Out)</p>
+                                    <div className="flex items-center gap-3 mt-2">
+                                        <div>
+                                            <label className="text-xs text-gray-500 block mb-1">Month</label>
+                                            <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))} className="border rounded px-2 py-1 text-sm text-black">
+                                                <option value="all">All</option>
+                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                    <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 block mb-1">Year</label>
+                                            <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="border rounded px-2 py-1 text-sm text-black">
+                                                {Array.from({ length: 5 }, (_, idx) => new Date().getFullYear() - idx).map(y => (
+                                                    <option key={y} value={y}>{y}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                                     <div className="h-72 mb-6 relative print-expand-chart">
                                         <ResponsiveContainer width="100%" height="100%">

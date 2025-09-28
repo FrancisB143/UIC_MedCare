@@ -35,6 +35,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
 }) => {
     const [formData, setFormData] = useState<MedicineFormData>(initialFormData);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
     // Removed view state
 
     // Reset form when modal opens
@@ -98,11 +99,17 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     };
 
         const handleSubmit = (e: React.FormEvent) => {
-                e.preventDefault();
-                if (validateForm()) {
-                        onAddMedicine(formData);
-                        // Success view removed as requested
-                }
+                    e.preventDefault();
+                    if (isSubmitting) return; // prevent double submit
+                    if (validateForm()) {
+                            try {
+                                setIsSubmitting(true);
+                                onAddMedicine(formData);
+                            } finally {
+                                // allow closing to reset; keep locked until modal closes
+                                setIsSubmitting(false);
+                            }
+                    }
         };
 
     const handleClose = () => {
@@ -231,6 +238,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                                         <button
                                             type="submit"
                                             className="bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-lg hover:scale-105 transform text-sm"
+                                            disabled={isSubmitting}
                                         >
                                             ADD MEDICINE
                                         </button>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, AlertTriangle, X, Check, User } from 'lucide-react';
+import { Bell, AlertTriangle, X, Check } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { BranchInventoryService } from '../services/branchInventoryService';
 import ReactDOM from 'react-dom';
@@ -45,36 +45,20 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
     const [branchesMap, setBranchesMap] = useState<Record<number, string>>({});
     // local optimistic status map for requests: { [requestId]: 'approved' | 'rejected' }
     const [requestActionStatus, setRequestActionStatus] = useState<Record<number, 'approved' | 'rejected'>>({});
+    // debug raw view removed
 
-    // Generate low stock notifications from lowStockMedicines
-    const generateLowStockNotifications = (): Notification[] => {
-        if (lowStockMedicines.length === 0 || lowStockNotificationsCreated) return [];
-
-        const currentTime = new Date().toISOString();
-            return lowStockMedicines.map((medicine) => {
-                // prefer numeric quantity fields; if missing, coerce to 0
-                const qtyNum = Number((medicine as any).quantity ?? (medicine as any).current_stock ?? 0) || 0;
-                const title = 'Low Stock Alert';
-                const line2 = `${medicine.medicine_name}: ${qtyNum} units remaining`;
-                const dateStr = new Date().toLocaleDateString();
-                const message = `${title}\n${line2}\n${dateStr}`;
-                return {
-                    id: `low-stock-${medicine.medicine_id}`,
-                    type: 'warning' as const,
-                    // Use a newline-separated message matching backend format so NotificationBell renders it consistently
-                    message,
-                    isRead: false,
-                    createdAt: currentTime
-                } as Notification;
-            });
-    };
+    // We will rely on the database notifications for low-stock and requests.
+    // The server inserts deduplicated low-stock notifications into the
+    // `notifications` table (type = 'low_stock'). The UI will fetch those and
+    // display them. LocalStorage is still used only to avoid showing the same
+    // toast repeatedly in a single browser for already-seen low-stock items.
 
     // Decide source: use props if provided, otherwise use fetched data
     const effectiveNotifications = (notifications && notifications.length > 0) ? notifications : fetchedNotifications;
-    const effectiveLowStock = (lowStockMedicines && lowStockMedicines.length > 0) ? lowStockMedicines : fetchedLowStock;
 
-    // Combine original/fetched notifications with generated low stock notifications
-    const allNotifications = [...effectiveNotifications, ...generateLowStockNotifications()];
+    // All notifications come only from the database (server). low_stock rows
+    // in the `notifications` table will be shown as warning notifications.
+    const allNotifications = effectiveNotifications;
 
     // Helper: replace 'Branch <n>' placeholders (or fallback) with real branch names using branchesMap
     const resolveBranchNamesInMessage = (msg: string) => {
@@ -89,36 +73,49 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
     // Auto-show low stock alert when there are medicines with 50 or below units
     // Show the alert only once per medicine by persisting shown IDs in localStorage
     useEffect(() => {
-        if (!lowStockMedicines || lowStockMedicines.length === 0) return;
+        // Derive low-stock notifications from fetched DB notifications (type === 'low_stock')
+        const lowStockRows = allNotifications.filter(n => (n as any).type === 'low_stock' || (n as any).type === 'warning');
+        if (!lowStockRows || lowStockRows.length === 0) return;
 
         try {
             const storageKey = 'hims_low_stock_shown_v1';
             const raw = localStorage.getItem(storageKey);
             const shownMap = raw ? JSON.parse(raw) : {};
 
-            // Filter medicines that haven't been shown yet
-            const unseen = lowStockMedicines.filter(m => !shownMap[String(m.medicine_id)]);
-            if (unseen.length === 0) return; // nothing new to show
+            // Parse reference_id or try to extract medicine id from message id
+            const parsed = lowStockRows.map(r => {
+                const referenceId = (r as any).reference_id ?? undefined;
+                // Attempt to parse from id like 'low-stock-123' when reference_id missing
+                let parsedId: number | undefined = undefined;
+                if (!referenceId && typeof r.id === 'string') {
+                    const m = r.id.match(/low-stock-(\d+)/);
+                    if (m) parsedId = Number(m[1]);
+                }
+                return { row: r, medicine_id: referenceId ?? parsedId };
+            }).filter(x => x.medicine_id !== undefined) as Array<{ row: any, medicine_id: number }>;
 
-            // Mark them as shown now
-            unseen.forEach(m => { shownMap[String(m.medicine_id)] = true; });
+            const unseen = parsed.filter(p => !shownMap[String(p.medicine_id)]);
+            if (unseen.length === 0) return;
+
+            unseen.forEach(p => { shownMap[String(p.medicine_id)] = true; });
             localStorage.setItem(storageKey, JSON.stringify(shownMap));
             setLowStockNotificationsCreated(true);
 
-            // Build toast HTML with fallback text for undefined quantities
-            const listItems = lowStockMedicines.slice(0, 5).map(m => {
-                    const qtyNum = Number((m as any).quantity ?? (m as any).current_stock ?? 0) || 0;
-                    const qtyText = `${qtyNum} units`;
-                return `<li style=\"margin-bottom:4px\">${m.medicine_name}: ${qtyText}</li>`;
+            const listItems = parsed.slice(0, 5).map(p => {
+                const r = p.row;
+                // message format from server expected to contain the medicine name line
+                const lines = (r.message || '').split('\n');
+                const secondLine = lines[1] ?? lines[0] ?? '';
+                return `<li style=\"margin-bottom:4px\">${secondLine}</li>`;
             }).join('');
 
             const toastHtml = `
                 <div style="text-align:left;box-sizing:border-box;width:100%;">
                     <div style="font-weight:700;margin-bottom:6px;color:#7f1d1d">Low Stock Alert</div>
-                    <div style="font-size:13px;color:#7f1d1d;margin-bottom:6px">${lowStockMedicines.length} medicine${lowStockMedicines.length > 1 ? 's' : ''} need reordering (≤50 units)</div>
+                    <div style="font-size:13px;color:#7f1d1d;margin-bottom:6px">${parsed.length} medicine${parsed.length > 1 ? 's' : ''} need reordering (≤50 units)</div>
                     <div style="font-size:12px;color:#7f1d1d;max-height:96px;overflow:auto;word-break:break-word;white-space:normal;">
                         <ul style="padding-left:12px;margin:0">${listItems}</ul>
-                        ${lowStockMedicines.length > 5 ? `<div style=\"margin-top:6px\">... and ${lowStockMedicines.length - 5} more</div>` : ''}
+                        ${parsed.length > 5 ? `<div style=\"margin-top:6px\">... and ${parsed.length - 5} more</div>` : ''}
                     </div>
                 </div>
             `;
@@ -130,73 +127,19 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
                 timer: 5000,
                 timerProgressBar: true,
                 width: '320px',
-                customClass: {
-                    popup: 'rounded-lg shadow-lg'
-                }
+                customClass: { popup: 'rounded-lg shadow-lg' }
             });
 
-            Toast.fire({
-                html: toastHtml,
-                icon: 'warning'
-            });
+            Toast.fire({ html: toastHtml, icon: 'warning' });
         } catch (err) {
-            // fail gracefully
             console.error('Low stock toast error', err);
         }
-    }, [lowStockMedicines]);
+    }, [allNotifications]);
 
-    // Persist low-stock notifications to backend and create immediate UI notifications.
-    useEffect(() => {
-        const persistLowStock = async () => {
-            try {
-                const currentUser = UserService.getCurrentUser();
-                if (!currentUser || !currentUser.branch_id) return;
-                const branchId = currentUser.branch_id;
-
-                // use localStorage to avoid creating duplicate backend notifications in the same browser/session
-                const storageKey = 'hims_low_stock_persisted_v1';
-                const raw = localStorage.getItem(storageKey);
-                const persisted: Record<string, boolean> = raw ? JSON.parse(raw) : {};
-
-                const toPersist = (effectiveLowStock || []).filter((m: any) => {
-                    const key = `${branchId}:${m.medicine_id}`;
-                    return !persisted[key];
-                });
-
-                if (toPersist.length === 0) return;
-
-                for (const m of toPersist) {
-                    const qty = Number((m as any).quantity ?? (m as any).current_stock ?? 0) || 0;
-                    const message = `Low Stock Alert\n${m.medicine_name}: ${qty} units remaining\n${new Date().toLocaleDateString()}`;
-                    try {
-                        // pass medicine_id as reference_id to support backend dedupe by (branch, reference_id)
-                        await BranchInventoryService.createNotification(branchId, Number(m.medicine_id || 0), 'low_stock', message);
-                    } catch (err) {
-                        console.warn('Failed to persist low-stock notification', err);
-                    }
-
-                    // create an immediate UI notification (local) so user sees it right away
-                    try {
-                        NotificationService.createNotification(`Low Stock Alert: ${m.medicine_name} has only ${qty} units remaining`, 'warning');
-                    } catch (err) {
-                        console.warn('Failed to create local notification', err);
-                    }
-
-                    // mark persisted
-                    const key = `${branchId}:${m.medicine_id}`;
-                    persisted[key] = true;
-                }
-
-                localStorage.setItem(storageKey, JSON.stringify(persisted));
-                setLowStockNotificationsCreated(true);
-            } catch (err) {
-                console.error('Error persisting low stock notifications', err);
-            }
-        };
-
-        // run when effectiveLowStock changes
-        persistLowStock();
-    }, [effectiveLowStock]);
+    // Previously this component would also persist low-stock notifications to the backend.
+    // To avoid duplicate creation we rely on the server-side low-stock endpoint to insert
+    // notifications (UserController@getLowStockMedicines). The UI still shows the toast
+    // above when low stock is detected, but creation is centralized on the backend.
 
     // Fetch notifications and low stock if parent didn't provide them
     useEffect(() => {
@@ -271,8 +214,31 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
     };
 
     // Show only first 2 notifications in the bell, rest go to notification page
-    const displayedNotifications = allNotifications.slice(0, 2);
-    const hasMoreNotifications = allNotifications.length > 2;
+    // As a final safeguard, dedupe request notifications here preferring items
+    // that already have a requestStatus (approved/rejected) over plain pending ones
+    const dedupeRequestNotifications = (list: Notification[]) => {
+        const map = new Map<string, Notification>();
+        for (const n of list) {
+            // build a key by requestId if present, otherwise by message
+            const rid = (n as any).requestId ?? (n as any).request_id ?? null;
+            const key = rid ? `req:${rid}` : `msg:${(n.message || '').replace(/\s*\[req:\s*\d+\s*\]\s*/i, '').trim().toLowerCase()}`;
+
+            // if we already have an entry for this key, prefer the one with requestStatus
+            if (map.has(key)) {
+                const existing = map.get(key)!;
+                const existingHasStatus = !!((existing as any).requestStatus || (existing as any).request_status);
+                const currentHasStatus = !!((n as any).requestStatus || (n as any).request_status);
+                if (currentHasStatus && !existingHasStatus) map.set(key, n);
+            } else {
+                map.set(key, n);
+            }
+        }
+        return Array.from(map.values());
+    };
+
+    const safeList = dedupeRequestNotifications(allNotifications);
+    const displayedNotifications = safeList.slice(0, 2);
+    const hasMoreNotifications = safeList.length > 2;
 
     // Approve/reject handlers when NotificationBell owns the calls
     const handleApprove = async (requestId: number) => {
@@ -410,8 +376,8 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
                             {displayedNotifications.map(notification => (
                                 <div key={notification.id} className="flex items-start p-2 rounded-lg hover:bg-gray-50">
                                     {/* Avatar/icon column */}
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 mt-1 bg-gray-100">
-                                        <User className="w-5 h-5 text-gray-700" />
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 mt-1 bg-gray-100 overflow-hidden">
+                                        <img src="/images/nurse.jpg" alt="nurse" className="w-8 h-8 object-cover" />
                                     </div>
                                     <div className="flex-1">
                                         {/* If this is a low stock notification, prefer newline-separated message parts */}

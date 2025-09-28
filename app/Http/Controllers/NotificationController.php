@@ -14,14 +14,19 @@ class NotificationController extends Controller
         try {
             $validated = $request->validate([
                 'branch_id' => 'required|integer|exists:branches,branch_id',
-                'user_id' => 'nullable|integer|exists:users,user_id',
+                // we accept either reference_id (preferred) or legacy user_id which some callers use to pass medicine id
+                'reference_id' => 'nullable|integer|exists:medicines,medicine_id',
+                'user_id' => 'nullable|integer',
                 'type' => 'required|string',
                 'message' => 'required|string'
             ]);
 
+            // Determine reference_id: prefer explicit reference_id, otherwise fall back to user_id if present
+            $referenceId = $validated['reference_id'] ?? $request->input('user_id') ?? null;
+
             $id = DB::table('notifications')->insertGetId([
                 'branch_id' => $validated['branch_id'],
-                'user_id' => $validated['user_id'] ?? null,
+                'reference_id' => $referenceId,
                 'type' => $validated['type'],
                 'message' => $validated['message'],
                 'is_read' => 0,

@@ -301,9 +301,9 @@ const OtherBranchInventoryPage: React.FC = () => {
                 throw new Error(result.message || 'Failed to create branch request');
             }
 
-            // Create a notification for the target branch
-            const message = `${currentUser.branch_name || 'A branch'} requested ${data.quantity} unit${data.quantity > 1 ? 's' : ''} of ${medName}`;
-            await BranchInventoryService.createNotification(Number(branchId), null, 'request', message);
+            // Notification creation is handled server-side inside the branch request API
+            // (BranchRequestController::store inserts a canonical notification). Do not
+            // create a second notification here to avoid duplicates.
 
             // Show success to the requester
             Swal.fire({ icon: 'success', title: 'Request Sent', text: `Your request for ${data.quantity} ${medName} was sent to ${branch?.name || 'the branch'}.` });

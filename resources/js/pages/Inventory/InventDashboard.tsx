@@ -285,11 +285,11 @@ const MeditrackDashboard: React.FC = () => {
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A3386C]"></div>
                                             </div>
                                         ) : lowStockMedicines.length > 0 ? (
-                                            <div className="space-y-2 p-4 pb-4">
-                                                {lowStockMedicines.map((medicine, index) => (
-                                                    <div key={medicine.medicine_id} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-md">
+                                            <div className="space-y-2 p-3 pb-3">
+                                                {lowStockMedicines.slice(0,5).map((medicine, index) => (
+                                                    <div key={medicine.medicine_id} className="flex items-center justify-between py-2 px-3 bg-red-50 border border-red-200 rounded-md">
                                                         <div className="flex items-center flex-1 min-w-0">
-                                                            <div className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 flex-shrink-0">
+                                                            <div className="w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-semibold mr-3 flex-shrink-0">
                                                                 {index + 1}
                                                             </div>
                                                             <div className="min-w-0">
@@ -299,12 +299,12 @@ const MeditrackDashboard: React.FC = () => {
                                                                 <p className="text-xs text-gray-500">{medicine.medicine_category}</p>
                                                             </div>
                                                         </div>
-                                                        <div className="text-right ml-4 flex-shrink-0">
+                                                        <div className="text-right ml-3 flex-shrink-0">
                                                             <div className="flex items-center">
-                                                                <Minus className="w-4 h-4 text-red-600 mr-1" />
-                                                                <span className="font-bold text-red-600 text-lg">{medicine.quantity}</span>
+                                                                <Minus className="w-3.5 h-3.5 text-red-600 mr-1" />
+                                                                <span className="font-bold text-red-600 text-base">{medicine.quantity}</span>
                                                             </div>
-                                                            <span className="text-xs text-gray-500">units left</span>
+                                                            <span className="text-[11px] text-gray-500">units left</span>
                                                         </div>
                                                     </div>
                                                 ))}

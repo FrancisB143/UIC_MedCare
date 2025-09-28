@@ -9,7 +9,7 @@ interface RequestMedicineModalProps {
   setIsOpen: (isOpen: boolean) => void;
   branchId: number;
   medicineOptions?: BranchInventoryItem[]; // medicines available in the selected branch
-  onRequest: (data: { medicineId: number; expirationDate: string; quantity: number }) => void;
+  onRequest: (data: { medicineId: number; expirationDate: string; quantity: number }) => Promise<void> | void;
 }
 
 const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
@@ -28,6 +28,7 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
   const [maxQuantity, setMaxQuantity] = useState(0);
   const [quantity, setQuantity] = useState<number | ''>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -94,16 +95,26 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!validate()) return;
-    onRequest({
-      medicineId: Number(selectedMedicineId!),
-      expirationDate: selectedExpiration,
-      quantity: Number(quantity),
-    });
-    setIsOpen(false);
-    // Reset form after successful request
-    resetForm();
+    if (isSubmitting) return; // prevent double submit
+    setIsSubmitting(true);
+    try {
+      await onRequest({
+        medicineId: Number(selectedMedicineId!),
+        expirationDate: selectedExpiration,
+        quantity: Number(quantity),
+      });
+      setIsOpen(false);
+      // Reset form after successful request
+      resetForm();
+    } catch (err) {
+      // let parent handle errors; still re-enable
+      console.error('RequestMedicineModal: onRequest failed', err);
+      Swal.fire({ icon: 'error', title: 'Request Failed', text: (err as any)?.message || 'Failed to create request' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetForm = () => {
@@ -201,8 +212,8 @@ const RequestMedicineModal: React.FC<RequestMedicineModalProps> = ({
               </div>
             </div>
             <div className="flex justify-center items-center space-x-4 mt-8">
-              <button onClick={handleClose} className="w-full bg-transparent hover:bg-gray-100 border border-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-colors">CANCEL</button>
-              <button onClick={handleConfirm} className="w-full bg-[#A3386C] hover:bg-[#8a2f5a] text-white font-semibold py-2 px-6 rounded-lg transition-colors cursor-pointer">CONFIRM</button>
+              <button onClick={handleClose} disabled={isSubmitting} className="w-full bg-transparent hover:bg-gray-100 border border-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-colors">CANCEL</button>
+              <button onClick={handleConfirm} disabled={isSubmitting} className={`w-full ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#A3386C] hover:bg-[#8a2f5a]'} text-white font-semibold py-2 px-6 rounded-lg transition-colors`}>{isSubmitting ? 'SENDING...' : 'CONFIRM'}</button>
             </div>
           </div>
         </div>

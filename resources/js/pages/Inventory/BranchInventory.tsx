@@ -98,17 +98,29 @@ const BranchInventoryPage: React.FC = () => {
                 return acc;
             }, {} as Record<number, number>);
 
-            // Find medicines that are below their reorder level (default 50)
-            const lowStockMedicines = [];
-            for (const record of branchInventory) {
-                const currentStock = record.quantity || 0;
-                const minimumLevel = 50; // Default reorder level
-                
-                if (currentStock <= minimumLevel) {
+            // Aggregate total stock per medicine across batches so we consider the
+            // combined quantity (not per-stock-in row). This prevents missing a
+            // medicine when it has multiple batches whose individual quantities
+            // are >50 but whose sum is <=50, or vice-versa.
+            const minimumLevel = 50; // Default reorder level
+            const lowStockMedicines: any[] = [];
+
+            for (const medicineIdStr of Object.keys(currentStockLevels)) {
+                const medicineId = Number(medicineIdStr);
+                const totalQty = currentStockLevels[medicineId] || 0;
+
+                if (totalQty <= minimumLevel) {
+                    // Prefer the canonical medicine name from the loaded `medicines` list
+                    // (populated by BranchInventoryService.getAllMedicines()). If not
+                    // available, fall back to a representative inventory record, then
+                    // finally to a generic placeholder.
+                    const rep = branchInventory.find(r => r.medicine_id === medicineId);
+                    const canonical = medicines.find(m => Number(m.medicine_id) === medicineId) as any;
+                    const medicineName = canonical?.medicine_name || rep?.medicine?.medicine_name || `Medicine ${medicineId}`;
                     lowStockMedicines.push({
-                        medicine_id: record.medicine_id,
-                        medicine_name: record.medicine?.medicine_name,
-                        current_stock: currentStock,
+                        medicine_id: medicineId,
+                        medicine_name: medicineName,
+                        current_stock: totalQty,
                         minimum_level: minimumLevel
                     });
                 }
@@ -131,10 +143,10 @@ const BranchInventoryPage: React.FC = () => {
         return () => clearInterval(timer);
     }, []);
 
-    // Check for low stock medicines when branchInventory changes
+    // Check for low stock medicines when branchInventory changes and persist to database
     useEffect(() => {
-        if (branchInventory.length > 0) {
-            checkLowStockMedicines().then((lowStock) => {
+        if (branchInventory.length > 0 && branchInfo) {
+            checkLowStockMedicines().then(async (lowStock) => {
                 // Normalize low stock objects so NotificationBell receives a numeric `quantity` field
                 const normalized = lowStock.map(ls => ({
                     medicine_id: ls.medicine_id,
@@ -143,10 +155,42 @@ const BranchInventoryPage: React.FC = () => {
                     minimum_level: ls.minimum_level
                 }));
 
+                // Set local low-stock state once using the normalized values so the
+                // NotificationBell can show the toast immediately. Then call the
+                // server endpoint once to ensure deduplicated notifications are
+                // persisted. Avoid setting lowStockMedicines again from the server
+                // result to prevent double-dispatch and potential duplicate UI
+                // behavior.
                 setLowStockMedicines(normalized);
+
+                // If there are low-stock medicines, show a short toast at top-right
+                try {
+                    if (normalized.length > 0) {
+                        const listHtml = normalized.map(m => `${m.medicine_name} - ${m.quantity} units left`).join('<br/>');
+                        Swal.fire({
+                            target: '#branch-main-content',
+                            title: 'Low stock',
+                            html: `<div style="text-align:left;margin-left:0.25rem">${listHtml}</div>`,
+                            icon: 'warning',
+                            position: 'top-end',
+                            toast: true,
+                            timer: 4000,
+                            timerProgressBar: true,
+                            showConfirmButton: false,
+                            customClass: { popup: 'shadow-md rounded-md' },
+                            didOpen: (popup) => { popup.style.maxWidth = '420px'; }
+                        });
+                    }
+
+                    const branchId = branchInfo.branch_id;
+                    // perform server call once; server will insert deduped notifications
+                    await BranchInventoryService.getLowStockMedicinesMSSQL(branchId).catch((e) => { console.warn('Low-stock server call failed', e); return []; });
+                } catch (err) {
+                    console.error('Error handling low-stock notifications:', err);
+                }
             });
         }
-    }, [branchInventory]);
+    }, [branchInventory, branchInfo]);
 
     // NotificationBell will load notifications for this branch; no need to fetch here
 
@@ -547,18 +591,19 @@ const BranchInventoryPage: React.FC = () => {
             // History logging is now handled by database triggers
             // No need for manual logging here
             
-            // Close modal and reload data
+            // Close modal and show success alert. Reload only after the user
+            // clicks OK on the alert so top-level components refresh and
+            // notifications are updated without an immediate forced reload.
             setAddMedicineModalOpen(false);
-            await loadInventoryData();
-            
-            // Show success alert
+
             Swal.fire({
                 icon: 'success',
                 title: 'Medicine Added Successfully!',
                 text: `${medicineData.medicineName} has been added to the inventory.`,
-                confirmButtonText: 'OK',
-                timer: 3000,
-                timerProgressBar: true
+                confirmButtonText: 'OK'
+            }).then(() => {
+                // reload after user acknowledges the success message
+                window.location.reload();
             });
             
         } catch (error) {
@@ -855,6 +900,8 @@ const BranchInventoryPage: React.FC = () => {
                                 />
                             </div>
                         </div>
+
+                        {/* inline low-stock banner removed; toast remains */}
                         
                         {/* Custom Inventory Table */}
                         <div className="bg-white rounded-lg overflow-auto flex-1">
@@ -894,9 +941,7 @@ const BranchInventoryPage: React.FC = () => {
                                                 }`}
                                             >
                                                 <td className="px-6 py-4">
-                                                    <div className="text-gray-900 font-medium">
-                                                        {group.medicine_name}
-                                                    </div>
+                                                    {renderWrappedName(group.medicine_name)}
                                                 </td>
                                                 <td className="px-6 py-4 text-gray-900">
                                                     {group.medicine_category}
@@ -958,5 +1003,39 @@ const BranchInventoryPage: React.FC = () => {
         </div>
     );
 };
+
+    // Render medicine name as multiple lines when it exceeds `maxLen` characters
+    const renderWrappedName = (name: string | undefined | null, maxLen = 20) => {
+        if (!name) return null;
+        const lines: string[] = [];
+        let current = '';
+        for (const word of name.split(' ')) {
+            if ((current + (current ? ' ' : '') + word).length <= maxLen) {
+                current = current ? current + ' ' + word : word;
+            } else {
+                if (current) lines.push(current);
+                if (word.length > maxLen) {
+                    // split long single word into chunks
+                    for (let i = 0; i < word.length; i += maxLen) {
+                        lines.push(word.slice(i, i + maxLen));
+                    }
+                    current = '';
+                } else {
+                    current = word;
+                }
+            }
+        }
+        if (current) lines.push(current);
+
+        return (
+            <div>
+                {lines.map((ln, i) => (
+                    <div key={i} className={i === 0 ? 'text-gray-900 font-medium' : 'text-gray-600 text-sm'}>
+                        {ln}
+                    </div>
+                ))}
+            </div>
+        );
+    };
 
 export default BranchInventoryPage;

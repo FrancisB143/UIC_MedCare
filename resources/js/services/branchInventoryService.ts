@@ -581,6 +581,26 @@ export class BranchInventoryService {
         }
     }
 
+    // Fetch historical branch requests (approved/rejected) involving a branch
+    static async getBranchRequestHistory(branchId: number): Promise<any[]> {
+        try {
+            const response = await fetch(`/api/branches/${branchId}/branch-requests/history`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error('Error fetching branch request history:', error);
+            return [];
+        }
+    }
+
     static async approveBranchRequest(requestId: number, confirmedBy: number): Promise<{ success: boolean; message?: string }> {
         try {
             const response = await fetch(`/api/branch-requests/${requestId}/approve`, {

@@ -10,6 +10,38 @@ interface OtherInventoryTableProps {
 const OtherInventoryTable: React.FC<OtherInventoryTableProps> = ({ medicines, searchTerm }) => {
   const [medicineLookup, setMedicineLookup] = useState<Map<number, Medicine>>(new Map());
 
+  const renderWrappedName = (name?: string | null, maxLen = 20) => {
+    if (!name) return null;
+    const lines: string[] = [];
+    let current = '';
+    for (const word of name.split(' ')) {
+      if ((current + (current ? ' ' : '') + word).length <= maxLen) {
+        current = current ? current + ' ' + word : word;
+      } else {
+        if (current) lines.push(current);
+        if (word.length > maxLen) {
+          for (let i = 0; i < word.length; i += maxLen) {
+            lines.push(word.slice(i, i + maxLen));
+          }
+          current = '';
+        } else {
+          current = word;
+        }
+      }
+    }
+    if (current) lines.push(current);
+
+    return (
+      <div>
+        {lines.map((ln, i) => (
+          <div key={i} className={i === 0 ? 'text-gray-900 font-medium' : 'text-gray-600 text-sm'}>
+            {ln}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -45,7 +77,7 @@ const OtherInventoryTable: React.FC<OtherInventoryTableProps> = ({ medicines, se
             return (
               <tr key={`${item.medicine_id}-${item.lot_number ?? ''}`} className="hover:bg-gray-50">
                 <td className="px-6 py-4">
-                  <div className="text-gray-900 font-medium">{displayName}</div>
+                  {renderWrappedName(displayName)}
                 </td>
                 <td className="px-6 py-4 text-gray-900">{displayCategory}</td>
                 <td className="px-6 py-4 text-gray-900 font-medium">{item.quantity ?? 0}</td>
