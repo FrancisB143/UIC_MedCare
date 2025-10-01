@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();  // Google email
+            $table->string('password');
             $table->enum('role', ['doctor', 'nurse', 'student', 'employee'])->default('student');
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();

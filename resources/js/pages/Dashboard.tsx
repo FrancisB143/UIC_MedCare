@@ -1,6 +1,7 @@
 // resources/js/pages/Dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
+import api, { Student, Employee } from '../services/api';
 import {
     Bell,
     User,
@@ -20,7 +21,6 @@ import {
     Calendar,
     MessageSquare
 } from 'lucide-react';
-import { getStudents, getEmployees } from '../data/mockData';
 
 interface DateTimeData {
     date: string;
@@ -78,10 +78,28 @@ const Dashboard: React.FC = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
-    // Get patient counts
-    const students = getStudents();
-    const employees = getEmployees();
-    const totalPatients = students.length + employees.length;
+    // State for patient counts
+    const [students, setStudents] = useState<Student[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [totalPatients, setTotalPatients] = useState<number>(0);
+
+    // Fetch patient counts
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [studentsData, employeesData] = await Promise.all([
+                    api.students.getAll(),
+                    api.employees.getAll()
+                ]);
+                setStudents(studentsData);
+                setEmployees(employeesData);
+                setTotalPatients(studentsData.length + employeesData.length);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        };
+        fetchData();
+    }, []);
 
     // Recent activity mock data
     const recentActivities = [

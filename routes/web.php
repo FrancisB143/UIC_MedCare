@@ -18,10 +18,11 @@ Route::get('/auth/google', [GoogleLoginController::class, 'redirect'])->name('go
 Route::get('/auth/google/callback', [GoogleLoginController::class, 'callback'])->name('google.callback');
 
 
+// Guest accessible dashboard route
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
 // Protected Routes
 Route::middleware(['auth'])->group(function () {
-    // Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Patient Routes
     Route::prefix('patients')->group(function () {

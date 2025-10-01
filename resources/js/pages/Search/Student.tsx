@@ -1,5 +1,5 @@
 // resources/js/pages/Consultation/Student.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import {
     Bell,
@@ -17,14 +17,33 @@ import {
     Menu,
     MessageSquare
 } from 'lucide-react';
-import { getStudents } from '../../data/mockData';
+import api from '../../services/api';
+
+interface Student {
+    id: number;
+    student_number: string;
+    first_name: string;
+    last_name: string;
+    program: string;
+    year_level: string;
+    section: string;
+    contact_number: string;
+    address: string;
+    patient?: {
+        date_of_birth: string;
+        age: number;
+        gender: string;
+    };
+}
 
 const Student: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [isSearchOpen, setSearchOpen] = useState(false);
     const [isInventoryOpen, setInventoryOpen] = useState(false);
-    const [sortBy, setSortBy] = useState<'lastName' | 'course'>('lastName');
+    const [sortBy, setSortBy] = useState<'lastName' | 'program'>('lastName');
     const [searchTerm, setSearchTerm] = useState('');
+    const [students, setStudents] = useState<Student[]>([]);
+    const [loading, setLoading] = useState(false);
 
     const handleNavigation = (path: string): void => {
         router.visit(path);
@@ -38,23 +57,36 @@ const Student: React.FC = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
-    // Get student data from centralized mock data
-    const students = getStudents();
+    const searchStudents = async (query: string) => {
+        setLoading(true);
+        try {
+            const data = await api.students.search(query);
+            setStudents(data);
+        } catch (error) {
+            console.error('Failed to search students:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    // Filter and sort students
+    // Search and sort students
+    useEffect(() => {
+        if (searchTerm) {
+            searchStudents(searchTerm);
+        }
+    }, [searchTerm]);
+
     const filteredAndSortedStudents = students
         .filter(student => 
-            student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            student.course.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            student.id.toLowerCase().includes(searchTerm.toLowerCase())
+            `${student.first_name} ${student.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            student.program?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            student.student_number?.toLowerCase().includes(searchTerm.toLowerCase())
         )
         .sort((a, b) => {
             if (sortBy === 'lastName') {
-                const lastNameA = a.name.split(' ').pop() || '';
-                const lastNameB = b.name.split(' ').pop() || '';
-                return lastNameA.localeCompare(lastNameB);
+                return a.last_name.localeCompare(b.last_name);
             } else {
-                return a.course.localeCompare(b.course);
+                return a.program.localeCompare(b.program);
             }
         });
 
@@ -202,7 +234,7 @@ const Student: React.FC = () => {
                                 <select
                                     className="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#A3386C] focus:border-[#A3386C] outline-none cursor-pointer text-black"
                                     value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value as 'lastName' | 'course')}
+                                    onChange={(e) => setSortBy(e.target.value as 'lastName' | 'program')}
                                 >
                                     <option value="lastName">Last Name</option>
                                     <option value="course">Course</option>
@@ -229,10 +261,10 @@ const Student: React.FC = () => {
                                             onClick={() => router.visit(`/consultation/student/${student.id}`)}
                                         >
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{student.id}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{student.name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{student.age}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{student.gender}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{student.course}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{`${student.first_name} ${student.last_name}`}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{student.patient?.age || 'N/A'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{student.patient?.gender || 'N/A'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{student.program}</td>
                                         </tr>
                                     ))}
                                 </tbody>

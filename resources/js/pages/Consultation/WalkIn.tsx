@@ -17,7 +17,7 @@ import {
     Menu,
     MessageSquare
 } from 'lucide-react';
-import { getPatientById, addConsultation, addRemark } from '../../data/mockData';
+import api from '../../services/api';
 
 const WalkIn: React.FC = () => {
     // Get the id from Inertia's page props (passed from Laravel controller)

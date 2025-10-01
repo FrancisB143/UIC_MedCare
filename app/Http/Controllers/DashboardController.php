@@ -15,6 +15,19 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        if (!auth()->check()) {
+            // Guest user view
+            return Inertia::render('Dashboard', [
+                'stats' => [
+                    'total_patients' => Patient::count(),
+                    'pending_appointments' => 0,
+                    'today_consultations' => 0,
+                    'recent_consultations' => [],
+                    'isGuest' => true
+                ]
+            ]);
+        }
+        
         abort_if(!in_array(auth()->user()->role, ['doctor', 'nurse']), 403);
 
         $user = auth()->user();

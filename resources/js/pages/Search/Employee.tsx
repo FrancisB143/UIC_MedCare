@@ -1,5 +1,5 @@
 // resources/js/pages/Search/Employee.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import {
     Bell,
@@ -17,7 +17,7 @@ import {
     Menu,
     MessageSquare
 } from 'lucide-react';
-import { getEmployees } from '../../data/mockData';
+import api from '../../services/api';
 
 const Employee: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -25,6 +25,8 @@ const Employee: React.FC = () => {
     const [isInventoryOpen, setInventoryOpen] = useState(false);
     const [sortBy, setSortBy] = useState<'lastName' | 'department'>('lastName');
     const [searchTerm, setSearchTerm] = useState('');
+    const [employees, setEmployees] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
 
     const handleNavigation = (path: string): void => {
         router.visit(path);
@@ -38,16 +40,31 @@ const Employee: React.FC = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
-    // Get employee data from centralized mock data
-    const employees = getEmployees();
+    const searchEmployees = async (query: string) => {
+        setLoading(true);
+        try {
+            const data = await api.employees.search(query);
+            setEmployees(data);
+        } catch (error) {
+            console.error('Failed to search employees:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    // Filter and sort employees
+    // Search and sort employees
+    useEffect(() => {
+        if (searchTerm) {
+            searchEmployees(searchTerm);
+        }
+    }, [searchTerm]);
+
     const filteredAndSortedEmployees = employees
         .filter(employee => 
-            employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            employee.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            employee.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            employee.id.toLowerCase().includes(searchTerm.toLowerCase())
+            `${employee.first_name} ${employee.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            employee.employee_id?.toLowerCase().includes(searchTerm.toLowerCase())
         )
         .sort((a, b) => {
             if (sortBy === 'lastName') {
