@@ -52,25 +52,29 @@ const Employee: React.FC = () => {
         }
     };
 
-    // Search and sort employees
+        // Load initial data and handle search
     useEffect(() => {
-        if (searchTerm) {
-            searchEmployees(searchTerm);
-        }
+        const loadEmployees = async () => {
+            setLoading(true);
+            try {
+                const data = searchTerm 
+                    ? await api.employees.search(searchTerm)
+                    : await api.employees.getAll();
+                setEmployees(data);
+            } catch (error) {
+                console.error('Failed to load employees:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadEmployees();
     }, [searchTerm]);
 
     const filteredAndSortedEmployees = employees
-        .filter(employee => 
-            `${employee.first_name} ${employee.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            employee.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            employee.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            employee.employee_id?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
         .sort((a, b) => {
             if (sortBy === 'lastName') {
-                const lastNameA = a.name.split(' ').pop() || '';
-                const lastNameB = b.name.split(' ').pop() || '';
-                return lastNameA.localeCompare(lastNameB);
+                return a.last_name.localeCompare(b.last_name);
             } else {
                 return a.department.localeCompare(b.department);
             }
@@ -249,7 +253,7 @@ const Employee: React.FC = () => {
                                         >
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.id}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.age}</td>
+                                            <td className="pxsza-6 py-4 whitespace-nowrap text-sm text-black">{employee.age}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.gender}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.department}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{employee.position}</td>

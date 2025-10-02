@@ -50,10 +50,34 @@ class StudentController extends Controller
 
     public function getAll()
     {
-        abort_if(!in_array(auth()->user()->role, ['doctor', 'nurse']), 403);
-        
-        $students = Student::with(['patient'])->get();
-        return response()->json($students);
+        \Log::info('getAll method called in StudentController');
+        try {
+            // Add debug info about the database connection
+            \Log::info('Database config:', [
+                'connection' => config('database.default'),
+                'database' => database_path('database.sqlite'),
+                'exists' => file_exists(database_path('database.sqlite')),
+                'size' => file_exists(database_path('database.sqlite')) ? filesize(database_path('database.sqlite')) : 0
+            ]);
+            
+            // Check if we can even count students
+            $count = Student::count();
+            \Log::info('Initial student count: ' . $count);
+            
+            $students = Student::with(['patient'])->get();
+            \Log::info('Students retrieved with relationships:', [
+                'count' => $students->count(),
+                'data' => $students->toArray()
+            ]);
+            
+            return response()->json($students);
+        } catch (\Exception $e) {
+            \Log::error('Error in getAll:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function getById($id)

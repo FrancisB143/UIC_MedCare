@@ -27,7 +27,9 @@ class Patient extends Model
         'disabilities',
         'genetic_conditions',
         'type',
-        'user_id'
+        'user_id',
+        'student_id',
+        'employee_id'
     ];
 
     // Relationships
@@ -73,11 +75,11 @@ class Patient extends Model
 
     public function student()
     {
-        return $this->hasOne(Student::class);
+        return $this->belongsTo(Student::class);
     }
 
     public function employee()
     {
-        return $this->hasOne(Employee::class);
+        return $this->belongsTo(Employee::class);
     }
 }

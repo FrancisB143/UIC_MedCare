@@ -69,24 +69,31 @@ const Student: React.FC = () => {
         }
     };
 
-    // Search and sort students
+    // Load initial data and handle search
     useEffect(() => {
-        if (searchTerm) {
-            searchStudents(searchTerm);
-        }
+        const loadStudents = async () => {
+            setLoading(true);
+            try {
+                const data = searchTerm 
+                    ? await api.students.search(searchTerm)
+                    : await api.students.getAll();
+                setStudents(data);
+            } catch (error) {
+                console.error('Failed to load students:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadStudents();
     }, [searchTerm]);
 
     const filteredAndSortedStudents = students
-        .filter(student => 
-            `${student.first_name} ${student.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            student.program?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            student.student_number?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
         .sort((a, b) => {
             if (sortBy === 'lastName') {
                 return a.last_name.localeCompare(b.last_name);
             } else {
-                return a.program.localeCompare(b.program);
+                return (a.program || '').localeCompare(b.program || '');
             }
         });
 
@@ -237,7 +244,7 @@ const Student: React.FC = () => {
                                     onChange={(e) => setSortBy(e.target.value as 'lastName' | 'program')}
                                 >
                                     <option value="lastName">Last Name</option>
-                                    <option value="course">Course</option>
+                                    <option value="program">Program</option>
                                 </select>
                             </div>
                         </div>
