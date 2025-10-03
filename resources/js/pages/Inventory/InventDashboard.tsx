@@ -77,12 +77,49 @@ const MeditrackDashboard: React.FC = () => {
     const loadLowStockMedicines = async () => {
         try {
             setIsLoading(true);
-            const lowStock = await BranchInventoryService.getLowStockMedicinesMSSQL(currentUser.branch_id);
-            // Get top 5 medicines that need reorder (sorted by quantity ascending)
-            const top5LowStock = lowStock
-                .sort((a, b) => a.quantity - b.quantity)
-                .slice(0, 5);
-            setLowStockMedicines(top5LowStock);
+            // Fetch full branch inventory and aggregate available quantities per medicine
+            const inventory = await BranchInventoryService.getBranchInventory(currentUser.branch_id);
+
+            const grouped = new Map<number, {
+                medicine_id: number;
+                medicine_name: string;
+                medicine_category?: string;
+                quantity: number;
+            }>();
+
+            for (const rec of inventory) {
+                const id = Number(rec.medicine_id || 0);
+                const name = rec.medicine_name || rec.medicine?.medicine_name || '';
+                const cat = rec.category || rec.medicine?.medicine_category || '';
+                const qty = Number(rec.quantity || 0);
+
+                if (grouped.has(id)) {
+                    grouped.get(id)!.quantity += qty;
+                } else {
+                    grouped.set(id, { medicine_id: id, medicine_name: name, medicine_category: cat, quantity: qty });
+                }
+            }
+
+            const summary = Array.from(grouped.values());
+
+            // Prefer medicines at or below reorder threshold (50). If none, pick the lowest 5 by quantity.
+            const threshold = 50;
+            const low = summary.filter(s => s.quantity <= threshold).sort((a, b) => a.quantity - b.quantity);
+            let top5LowStock = low.length > 0 ? low.slice(0, 5) : summary.sort((a, b) => a.quantity - b.quantity).slice(0, 5);
+
+            // Normalize to BranchStockSummary shape used by the component
+            const normalized = top5LowStock.map((s) => ({
+                medicine_id: s.medicine_id,
+                medicine_name: s.medicine_name,
+                medicine_category: s.medicine_category || '',
+                category: s.medicine_category || '',
+                quantity: s.quantity,
+                reorder_level: threshold,
+                branch_name: currentUser.branch_name || '',
+                branch_id: currentUser.branch_id || 0
+            }));
+
+            setLowStockMedicines(normalized as BranchStockSummary[]);
         } catch (error) {
             console.error('Error loading low stock medicines:', error);
         } finally {
@@ -95,11 +132,11 @@ const MeditrackDashboard: React.FC = () => {
             setIsLoadingExpiry(true);
             const expiringMedicines = await BranchInventoryService.getSoonToExpireMedicinesMSSQL(currentUser.branch_id);
             
-            // Take only the first (most urgent) medicine
+            // Take the top 5 most urgent medicines
             const sortedExpiring = expiringMedicines
                 .sort((a, b) => a.days_until_expiry - b.days_until_expiry)
-                .slice(0, 1);
-            
+                .slice(0, 5);
+
             setSoonToExpireMedicines(sortedExpiring);
         } catch (error) {
             console.error('Error loading soon to expire medicines:', error);
@@ -181,50 +218,41 @@ const MeditrackDashboard: React.FC = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
                             {/* Left Column */}
                             <div className="flex flex-col space-y-4 min-h-0">
-                                {/* Soon-to-Expire Medications */}
+                                {/* Soon-to-Expire Medicines (Top 5 vertical list) */}
                                 <div className="border border-[#A3386C] bg-white flex-1 flex flex-col min-h-0">
                                     <div className="p-4 border-b border-[#A3386C] flex-shrink-0">
                                         <h3 className="font-normal text-black text-base text-center flex items-center justify-center">
                                             <Calendar className="w-4 h-4 mr-2 text-[#A3386C]" />
-                                            Soon-to-Expire Medication
+                                            Soon-to-Expire Medications (Top 5)
                                         </h3>
-                                        <p className="font-light text-gray-600 text-xs text-center mt-2">Most urgent expiry within 30 days</p>
+                                        <p className="font-light text-gray-600 text-xs text-center mt-2">Most urgent expiries within 30 days</p>
                                     </div>
-                                    
-                                    <div className="flex-1 p-4 overflow-hidden">
+                                    <div className="flex-1 p-2 overflow-y-auto">
                                         {isLoadingExpiry ? (
                                             <div className="flex items-center justify-center h-full">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A3386C]"></div>
                                             </div>
                                         ) : soonToExpireMedicines.length > 0 ? (
-                                            <div className="h-full flex items-center">
-                                                {soonToExpireMedicines.map((medicine, index) => (
-                                                    <div key={index} className="w-full p-3 bg-orange-50 border border-orange-200 rounded-md">
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="font-medium text-gray-900 text-sm truncate mb-1" title={medicine.medicine_name}>
+                                            <div className="space-y-2 p-3 pb-3">
+                                                {soonToExpireMedicines.slice(0,5).map((medicine, index) => (
+                                                    <div key={`${medicine.medicine_name}-${index}`} className="flex items-center justify-between py-5 px-4 bg-orange-50 border border-orange-200 rounded-md h-13">
+                                                        <div className="flex items-center flex-1 min-w-0 overflow-hidden">
+                                                            <div className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-semibold mr-3 flex-shrink-0">
+                                                                {index + 1}
+                                                            </div>
+                                                            <div className="min-w-0 overflow-hidden">
+                                                                <p className="font-medium text-gray-900 text-sm truncate" title={medicine.medicine_name}>
                                                                     {medicine.medicine_name}
                                                                 </p>
-                                                                <p className="text-xs text-gray-600">
-                                                                    Expires: {new Date(medicine.expiration_date).toLocaleDateString('en-US', {
-                                                                        year: 'numeric',
-                                                                        month: 'short',
-                                                                        day: 'numeric'
-                                                                    })}
-                                                                </p>
+                                                                <p className="text-xs text-gray-500 truncate">Expires: {new Date(medicine.expiration_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
                                                             </div>
-                                                            <div className="text-right ml-3 flex-shrink-0">
-                                                                <div className="flex items-center justify-center">
-                                                                    <Calendar className="w-5 h-5 text-orange-600 mr-2" />
-                                                                    <span className="font-bold text-orange-600 text-xl">
-                                                                        {medicine.days_until_expiry}
-                                                                    </span>
-                                                                </div>
-                                                                <span className="text-xs text-gray-600 text-center block mt-1">
-                                                                    {medicine.days_until_expiry === 0 ? 'expires today' : 
-                                                                     medicine.days_until_expiry === 1 ? 'day left' : 'days left'}
-                                                                </span>
+                                                        </div>
+                                                        <div className="text-right ml-3 flex-shrink-0 w-20">
+                                                            <div className="flex items-center justify-end">
+                                                                <Calendar className="w-3.5 h-3.5 text-orange-600 mr-1" />
+                                                                <span className="font-bold text-orange-600 text-base">{medicine.days_until_expiry}</span>
                                                             </div>
+                                                            <span className="text-[11px] text-gray-500 block">{medicine.days_until_expiry === 0 ? 'expires today' : (medicine.days_until_expiry === 1 ? 'day left' : 'days left')}</span>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -235,35 +263,6 @@ const MeditrackDashboard: React.FC = () => {
                                                 <p className="text-base font-medium mb-1">No medicines expiring soon!</p>
                                             </div>
                                         )}
-                                    </div>
-                                </div>
-
-                                {/* Common Seasonal Illnesses Card */}
-                                <div className="border border-[#A3386C] bg-white flex-shrink-0">
-                                    <div className="p-4">
-                                        <h3 className="font-normal text-black text-base mb-3">Common Seasonal Illnesses</h3>
-                                        <div className="w-full h-px bg-gray-300 mb-3"></div>
-                                        <div className="border border-[#A3386C] rounded">
-                                            <div className="border-b border-[#A3386C]">
-                                                <div className="py-2 px-2 flex items-center justify-between cursor-pointer">
-                                                    <span className="font-normal text-black text-sm">Fever</span>
-                                                    <img className="w-[16px] h-[16px]" alt="Arrow" src="/images/up-arrow.png" />
-                                                </div>
-                                            </div>
-                                            <div className="border-b border-[#A3386C]">
-                                                <div className="py-2 px-2 flex items-center justify-between cursor-pointer">
-                                                    <span className="font-normal text-black text-sm">Cold & Flu</span>
-                                                    <img className="w-[16px] h-[16px]" alt="Arrow" src="/images/up-arrow.png" />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="py-2 px-2 flex items-center justify-between cursor-pointer">
-                                                    <span className="font-normal text-black text-sm">Allergies</span>
-                                                    <img className="w-[16px] h-[16px]" alt="Arrow" src="/images/down-arrow.png" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <p className="mt-3 font-normal italic text-[#ff0000] text-xs">Check stocks regularly during peak seasons.</p>
                                     </div>
                                 </div>
                             </div>

@@ -45,6 +45,10 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
     const [branchesMap, setBranchesMap] = useState<Record<number, string>>({});
     // local optimistic status map for requests: { [requestId]: 'approved' | 'rejected' }
     const [requestActionStatus, setRequestActionStatus] = useState<Record<number, 'approved' | 'rejected'>>({});
+    // When true, the bell badge is hidden optimistically while we persist the read state.
+    const [optimisticAllRead, setOptimisticAllRead] = useState(false);
+    // Track pending branch requests count
+    const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
     // debug raw view removed
 
     // We will rely on the database notifications for low-stock and requests.
@@ -69,6 +73,17 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
             return branchesMap[id] ?? `Branch ${id}`;
         });
     };
+
+    // Show unread count instead of total count for the badge. If we've
+    // optimistically marked all as read, return 0 so the badge hides
+    // immediately while the backend request runs.
+    const unreadNotificationsCount = optimisticAllRead ? 0 : allNotifications.filter(n => !(n as any).isRead).length;
+    
+    // Total unread count includes both unread notifications AND pending branch requests
+    const unreadCount = unreadNotificationsCount + pendingRequestsCount;
+    
+    // Show red dot indicator when: there are unread notifications (is_read=0) OR pending branch requests (status='pending')
+    const shouldShowRedDot = unreadCount > 0;
 
     // Auto-show low stock alert when there are medicines with 50 or below units
     // Show the alert only once per medicine by persisting shown IDs in localStorage
@@ -142,6 +157,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
     // above when low stock is detected, but creation is centralized on the backend.
 
     // Fetch notifications and low stock if parent didn't provide them
+    // Also set up periodic checking to trigger backend low-stock detection
     useEffect(() => {
         let mounted = true;
         const currentUser = UserService.getCurrentUser();
@@ -151,10 +167,29 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
 
         const fetchData = async () => {
             try {
-                // only fetch notifications if parent didn't provide
+                // IMPORTANT: Call getLowStockMedicinesMSSQL first to trigger backend detection
+                // This endpoint checks inventory and automatically creates notifications in the database
+                console.log('NotificationBell: Checking for low stock...');
+                const low = await BranchInventoryService.getLowStockMedicinesMSSQL(branchId).catch((err) => {
+                    console.error('Error fetching low stock:', err);
+                    return [];
+                });
+                if (!mounted) return;
+                if (!lowStockMedicines || lowStockMedicines.length === 0) {
+                    setFetchedLowStock(Array.isArray(low) ? low.map((l: any) => ({ 
+                        medicine_id: l.medicine_id, 
+                        medicine_name: l.medicine_name, 
+                        quantity: l.quantity,
+                        medicine_category: l.medicine_category 
+                    })) : []);
+                }
+                console.log('NotificationBell: Found', low.length, 'low stock medicines');
+
+                // Now fetch notifications (including newly created low-stock notifications)
                 if (!notifications || notifications.length === 0) {
                     const rows = await BranchInventoryService.getNotifications(branchId);
                     if (!mounted) return;
+                    console.log('NotificationBell: Fetched', rows?.length || 0, 'notifications from database');
                     // normalize to Notification shape minimally
                     const normalized = (rows || []).map((r: any) => ({
                         id: r.notification_id ?? r.id ?? Math.random().toString(36).slice(2),
@@ -165,16 +200,18 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
                         requestId: r.request_id ?? undefined,
                         // include server-provided request status when available (from NotificationController)
                         requestStatus: r.request_status ?? r.requestStatus ?? undefined,
+                        // preserve reference_id for low-stock deduplication in toast
+                        reference_id: r.reference_id ?? undefined,
                     })) as Notification[];
                     setFetchedNotifications(normalized);
                 }
 
-                // only fetch low-stock if parent didn't provide
-                if (!lowStockMedicines || lowStockMedicines.length === 0) {
-                    const low = await BranchInventoryService.getLowStockMedicinesMSSQL(branchId).catch(() => []);
-                    if (!mounted) return;
-                    setFetchedLowStock(Array.isArray(low) ? low.map((l: any) => ({ medicine_id: l.medicine_id, medicine_name: l.medicine_name, quantity: l.quantity })) : []);
-                }
+                // Fetch pending branch requests to determine if red dot should show
+                // Red dot shows when: is_read=0 in notifications OR status='pending' in branch_requests
+                const pendingRequests = await BranchInventoryService.getPendingBranchRequests(branchId).catch(() => []);
+                if (!mounted) return;
+                console.log('NotificationBell: Found', pendingRequests?.length || 0, 'pending branch requests');
+                setPendingRequestsCount(pendingRequests?.length || 0);
 
                 // fetch branches once to resolve branch names in messages
                 const branches = await BranchInventoryService.getAllBranches().catch(() => []);
@@ -187,23 +224,60 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
             }
         };
 
+        // Initial fetch
         fetchData();
 
-        return () => { mounted = false; };
+        // Set up periodic checking every 2 minutes to detect new low stock and refresh notifications
+        const intervalId = setInterval(() => {
+            console.log('NotificationBell: Periodic check triggered');
+            fetchData();
+        }, 2 * 60 * 1000); // 2 minutes
+
+        return () => { 
+            mounted = false;
+            clearInterval(intervalId);
+        };
     }, []);
 
     const toggleNotification = () => {
-        setNotificationOpen(!isNotificationOpen);
-        
-        // Mark notifications as read when bell is clicked
-        if (!isNotificationOpen && allNotifications.length > 0) {
+        const opening = !isNotificationOpen;
+        setNotificationOpen(opening);
+
+        // When opening, optimistically mark notifications as read so the
+        // badge disappears immediately and the user sees instant feedback.
+        if (opening && allNotifications.length > 0) {
+            // hide badge locally
+            setOptimisticAllRead(true);
+
+            // set local fetched notifications as read so any list inside the
+            // dropdown shows the updated state immediately (if we're using
+            // fetchedNotifications as the source). This won't mutate props.
+            setFetchedNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+
             // call parent callback if provided
-            if (onMarkAsRead) onMarkAsRead();
-            // otherwise call backend directly
-            else {
+            if (onMarkAsRead) {
+                try { onMarkAsRead(); } catch (e) { console.warn('onMarkAsRead threw', e); }
+            } else {
+                // otherwise call backend to persist the read state. If it fails,
+                // roll back the optimistic UI change so the badge returns.
                 const currentUser = UserService.getCurrentUser();
                 if (currentUser && currentUser.branch_id) {
-                    BranchInventoryService.markNotificationsRead(currentUser.branch_id).catch(err => console.error(err));
+                    BranchInventoryService.markNotificationsRead(currentUser.branch_id)
+                        .then(() => {
+                            // success: nothing to do, optimistic state matches server
+                        })
+                        .catch(err => {
+                            console.error('Failed to mark notifications read:', err);
+                            // revert optimistic hide so the badge reappears
+                            setOptimisticAllRead(false);
+                            // also attempt to refetch notifications to restore accurate state
+                            BranchInventoryService.getNotifications(currentUser.branch_id)
+                                .then(rows => {
+                                    const normalized = (rows || []).map((r: any) => ({ id: r.notification_id ?? r.id ?? Math.random().toString(36).slice(2), type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' ? 'request' : 'info')) as any, message: r.message ?? '', isRead: !!r.is_read, createdAt: r.created_at ?? new Date().toISOString(), requestId: r.request_id ?? undefined, reference_id: r.reference_id ?? undefined })) as Notification[];
+                                    setFetchedNotifications(normalized);
+                                })
+                                .catch(() => {/* ignore refetch error */});
+                        });
                 }
             }
         }
@@ -256,9 +330,15 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
             if (res && res.success) {
                 // show server message or generic
                 Swal.fire({ icon: 'success', title: res.message || 'Approved', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+                
+                // Refetch notifications and pending requests to update red dot state
                 const rows = await BranchInventoryService.getNotifications(currentUser.branch_id);
                 const normalized = (rows || []).map((r: any) => ({ id: r.notification_id ?? r.id, type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' ? 'request' : 'info')) as any, message: r.message ?? '', isRead: !!r.is_read, createdAt: r.created_at })) as Notification[];
                 setFetchedNotifications(normalized);
+                
+                // Update pending requests count so red dot disappears if all are confirmed
+                const pendingRequests = await BranchInventoryService.getPendingBranchRequests(currentUser.branch_id).catch(() => []);
+                setPendingRequestsCount(pendingRequests?.length || 0);
             } else {
                 // show server error and revert UI status
                 setRequestActionStatus(prev => { const copy = { ...prev }; delete copy[requestId]; return copy; });
@@ -282,9 +362,15 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
             const res = await BranchInventoryService.rejectBranchRequest(requestId, currentUser.user_id);
             if (res && res.success) {
                 Swal.fire({ icon: 'success', title: res.message || 'Rejected', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+                
+                // Refetch notifications and pending requests to update red dot state
                 const rows = await BranchInventoryService.getNotifications(currentUser.branch_id);
                 const normalized = (rows || []).map((r: any) => ({ id: r.notification_id ?? r.id, type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' ? 'request' : 'info')) as any, message: r.message ?? '', isRead: !!r.is_read, createdAt: r.created_at })) as Notification[];
                 setFetchedNotifications(normalized);
+                
+                // Update pending requests count so red dot disappears if all are confirmed
+                const pendingRequests = await BranchInventoryService.getPendingBranchRequests(currentUser.branch_id).catch(() => []);
+                setPendingRequestsCount(pendingRequests?.length || 0);
             } else {
                 setRequestActionStatus(prev => { const copy = { ...prev }; delete copy[requestId]; return copy; });
                 Swal.fire({ icon: 'error', title: res?.message || 'Failed to reject', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
@@ -337,10 +423,16 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
             {/* Bell icon with notification count */}
             <div className="relative">
                 <Bell className="w-6 h-6 text-white cursor-pointer" onClick={toggleNotification} />
-                {allNotifications.length > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {allNotifications.length > 9 ? '9+' : allNotifications.length}
-                    </span>
+                {/* Show red dot indicator when: is_read=0 in notifications OR status='pending' in branch_requests */}
+                {shouldShowRedDot && (
+                    <>
+                        {/* Red dot indicator - small circle that appears on top-right of bell */}
+                        <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                        {/* Notification count badge (includes unread notifications + pending requests) */}
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                    </>
                 )}
             </div>
             {typeof document !== 'undefined' && ReactDOM.createPortal(

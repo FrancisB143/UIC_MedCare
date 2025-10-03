@@ -1328,44 +1328,79 @@ class UserController extends Controller
 
     /**
      * Get low stock medicines for a branch (≤ 50 units)
+     * Calculates available quantity = stock_in - dispensed - archived
      */
     public function getLowStockMedicines($branchId)
     {
         try {
             Log::info("Getting low stock medicines for branch: {$branchId}");
 
-            $lowStockMedicines = DB::table('medicine_stock_in as msi')
-                ->join('medicines as m', 'msi.medicine_id', '=', 'm.medicine_id')
-                ->select(
-                    'm.medicine_id',
-                    'm.medicine_name',
-                    'm.medicine_category',
-                    DB::raw('SUM(msi.quantity) as total_quantity')
-                )
-                ->where('msi.branch_id', $branchId)
-                ->where('msi.quantity', '>', 0) // Only count records with available stock
-                ->groupBy('m.medicine_id', 'm.medicine_name', 'm.medicine_category')
-                ->havingRaw('SUM(msi.quantity) <= 50') // Low stock threshold
-                ->orderBy('total_quantity', 'asc') // Lowest stock first
-                ->get();
+            // Use subqueries to avoid JOIN multiplication issues
+            // Wrap in outer query to filter by available_quantity
+            $lowStockMedicines = DB::select("
+                SELECT * FROM (
+                    SELECT 
+                        m.medicine_id,
+                        m.medicine_name,
+                        m.medicine_category,
+                        (
+                            (SELECT COALESCE(SUM(msi.quantity), 0) 
+                             FROM medicine_stock_in msi 
+                             WHERE msi.medicine_id = m.medicine_id AND msi.branch_id = ?)
+                            -
+                            (SELECT COALESCE(SUM(mso.quantity_dispensed), 0)
+                             FROM medicine_stock_out mso
+                             JOIN medicine_stock_in msi ON mso.medicine_stock_in_id = msi.medicine_stock_in_id
+                             WHERE msi.medicine_id = m.medicine_id AND msi.branch_id = ?)
+                            -
+                            (SELECT COALESCE(SUM(ma.quantity), 0)
+                             FROM medicine_archived ma
+                             JOIN medicine_stock_in msi ON ma.medicine_stock_in_id = msi.medicine_stock_in_id
+                             WHERE msi.medicine_id = m.medicine_id AND msi.branch_id = ?)
+                        ) as available_quantity
+                    FROM medicines m
+                    WHERE m.medicine_id IN (
+                        SELECT DISTINCT medicine_id 
+                        FROM medicine_stock_in 
+                        WHERE branch_id = ?
+                    )
+                ) AS inventory
+                WHERE available_quantity <= 50 AND available_quantity > 0
+                ORDER BY available_quantity ASC
+            ", [$branchId, $branchId, $branchId, $branchId]);
+
+            // Convert stdClass to array
+            $lowStockMedicines = collect($lowStockMedicines)->map(function($item) {
+                return (array) $item;
+            })->toArray();
 
             Log::info("Found " . count($lowStockMedicines) . " low stock medicines");
+            
+            // Log detailed info about what was found
+            foreach ($lowStockMedicines as $med) {
+                Log::info("Low stock medicine detected: {$med['medicine_name']} (ID: {$med['medicine_id']}), Available: {$med['available_quantity']} units");
+            }
 
-            $results = $lowStockMedicines->map(function($medicine) {
+            $results = array_map(function($medicine) {
                 return [
-                    'medicine_id' => $medicine->medicine_id,
-                    'medicine_name' => $medicine->medicine_name,
-                    'medicine_category' => $medicine->medicine_category,
-                    'quantity' => $medicine->total_quantity
+                    'medicine_id' => $medicine['medicine_id'],
+                    'medicine_name' => $medicine['medicine_name'],
+                    'medicine_category' => $medicine['medicine_category'],
+                    'quantity' => $medicine['available_quantity']
                 ];
-            })->toArray();
+            }, $lowStockMedicines);
 
             // Insert low-stock notifications only once per medicine per branch
             try {
+                Log::info("Attempting to insert notifications for " . count($results) . " low stock medicines");
+                
                 foreach ($results as $med) {
                     $branchIdInt = intval($branchId);
                     $medicineName = $med['medicine_name'];
                     $medicineId = intval($med['medicine_id'] ?? 0);
+                    
+                    Log::info("Checking notification for medicine ID {$medicineId} ({$medicineName}), quantity: {$med['quantity']}");
+                    
                     // Prevent duplicate low-stock notifications per branch + medicine using reference_id
                     $exists = DB::table('notifications')
                         ->where('branch_id', $branchIdInt)
@@ -1389,10 +1424,16 @@ class UserController extends Controller
                             'is_read' => 0,
                             'created_at' => now()
                         ]);
+                        
+                        Log::info("✓ Created notification for medicine ID {$medicineId} ({$medicineName})");
+                    } else {
+                        Log::info("Notification already exists for medicine ID {$medicineId} ({$medicineName})");
                     }
                 }
+                Log::info("Notification insertion complete");
             } catch (\Exception $e) {
-                Log::warning('Failed to insert low stock notifications: ' . $e->getMessage());
+                Log::error('Failed to insert low stock notifications: ' . $e->getMessage());
+                Log::error('Stack trace: ' . $e->getTraceAsString());
             }
 
             return response()->json($results);
