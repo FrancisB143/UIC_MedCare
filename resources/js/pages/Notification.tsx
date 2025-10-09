@@ -17,7 +17,14 @@ interface FullNotification {
     // In a real app, you might have an image URL or an icon component
     icon: React.ReactNode; 
     // optional metadata used for deduping and actions
-    _meta?: { source?: string; requestId?: number | null; referenceId?: number | null; requestStatus?: string | null };
+    _meta?: { 
+        source?: string; 
+        requestId?: number | null; 
+        referenceId?: number | null; 
+        requestStatus?: string | null;
+        fromBranchId?: number | null;
+        toBranchId?: number | null;
+    };
 }
 
 interface DateTimeData {
@@ -87,13 +94,15 @@ const Notification: React.FC = () => {
 
             const bellNotifs = (rows || []).map((r: any) => ({
                 id: r.notification_id ?? r.id ?? Math.random().toString(36).slice(2),
-                type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' ? 'request' : 'info')) as any,
+                type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' || r.type === 'request_approved' ? 'request' : 'info')) as any,
                 message: r.message ?? '',
                 isRead: !!r.is_read,
                 createdAt: r.created_at ?? new Date().toISOString(),
                 requestId: r.request_id ?? r.requestId ?? undefined,
                 referenceId: r.reference_id ?? r.referenceId ?? r.medicine_id ?? undefined,
                 requestStatus: r.request_status ?? r.requestStatus ?? undefined,
+                fromBranchId: r.from_branch_id ?? undefined,
+                toBranchId: r.to_branch_id ?? undefined,
             })) as NotificationType[];
             setBellNotifications(bellNotifs);
 
@@ -114,7 +123,14 @@ const Notification: React.FC = () => {
                     time: new Date((n as any).createdAt).toLocaleDateString(),
                     isoTime: iso,
                     icon,
-                    _meta: { source: 'notification', requestId: (n as any).requestId ?? null, referenceId: (n as any).referenceId ?? null, requestStatus: (n as any).requestStatus ?? null }
+                    _meta: { 
+                        source: 'notification', 
+                        requestId: (n as any).requestId ?? null, 
+                        referenceId: (n as any).referenceId ?? null, 
+                        requestStatus: (n as any).requestStatus ?? null,
+                        fromBranchId: (n as any).fromBranchId ?? null,
+                        toBranchId: (n as any).toBranchId ?? null
+                    }
                 } as any;
             });
 
@@ -368,23 +384,97 @@ const Notification: React.FC = () => {
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <p className="text-sm text-gray-400 whitespace-nowrap">{notification.time}</p>
-                                            {/* Render approve/reject for request-type notifications when we have a requestId */}
+                                            {/* Render approve/reject/receipt confirmation for request-type notifications */}
                                             {notification._meta && notification._meta.requestId && (
                                                 (() => {
                                                     const id = Number(notification._meta.requestId);
                                                     const serverStatus = notification._meta.requestStatus ?? null;
-                                                    if (serverStatus === 'approved') return <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-md text-sm">Approved</span>;
-                                                    if (serverStatus === 'rejected') return <span className="inline-block px-3 py-1 bg-red-100 text-red-800 rounded-md text-sm">Rejected</span>;
-                                                    return (
-                                                        <>
-                                                            <button onClick={() => handleApproveRequest(id)} className="px-3 py-1 bg-green-600 text-white rounded-md text-sm flex items-center">
-                                                                <Check className="w-4 h-4 mr-2" />Approve
-                                                            </button>
-                                                            <button onClick={() => handleRejectRequest(id)} className="px-3 py-1 bg-red-600 text-white rounded-md text-sm flex items-center">
-                                                                <X className="w-4 h-4 mr-2" />Reject
-                                                            </button>
-                                                        </>
-                                                    );
+                                                    const fromBranchId = notification._meta.fromBranchId ?? null;
+                                                    const toBranchId = notification._meta.toBranchId ?? null;
+                                                    
+                                                    const currentUser = UserService.getCurrentUser();
+                                                    const currentBranchId = currentUser?.branch_id ?? null;
+                                                    
+                                                    // Determine if current user is requester or supplier
+                                                    const isRequester = currentBranchId === fromBranchId;
+                                                    const isSupplier = currentBranchId === toBranchId;
+                                                    
+                                                    // SUPPLIER VIEW: Show Approve/Reject for pending, Approved badge for approved
+                                                    if (isSupplier && serverStatus === 'pending') {
+                                                        return (
+                                                            <>
+                                                                <button onClick={() => handleApproveRequest(id)} className="px-3 py-1 bg-green-600 text-white rounded-md text-sm flex items-center hover:bg-green-700">
+                                                                    <Check className="w-4 h-4 mr-2" />Approve
+                                                                </button>
+                                                                <button onClick={() => handleRejectRequest(id)} className="px-3 py-1 bg-red-600 text-white rounded-md text-sm flex items-center hover:bg-red-700">
+                                                                    <X className="w-4 h-4 mr-2" />Reject
+                                                                </button>
+                                                            </>
+                                                        );
+                                                    }
+                                                    
+                                                    if (isSupplier && serverStatus === 'approved') {
+                                                        return <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-md text-sm">Approved</span>;
+                                                    }
+                                                    
+                                                    // REQUESTER VIEW: Show receipt confirmation buttons for approved
+                                                    if (isRequester && serverStatus === 'approved') {
+                                                        return (
+                                                            <div className="flex gap-2">
+                                                                <button 
+                                                                    onClick={async () => {
+                                                                        if (!currentUser) return;
+                                                                        try {
+                                                                            const res = await BranchInventoryService.confirmBranchRequestReceipt(id, true, currentUser.user_id);
+                                                                            if (res && res.success) {
+                                                                                Swal.fire({ icon: 'success', title: 'Receipt Confirmed', text: res.message, toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+                                                                                await loadAll();
+                                                                            }
+                                                                        } catch (err: any) {
+                                                                            Swal.fire({ icon: 'error', title: 'Error', text: err?.message || '', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
+                                                                        }
+                                                                    }}
+                                                                    className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm flex items-center hover:bg-blue-700"
+                                                                >
+                                                                    <Check className="w-4 h-4 mr-2" />Yes, received
+                                                                </button>
+                                                                <button 
+                                                                    onClick={async () => {
+                                                                        if (!currentUser) return;
+                                                                        try {
+                                                                            const res = await BranchInventoryService.confirmBranchRequestReceipt(id, false, currentUser.user_id);
+                                                                            if (res && res.success) {
+                                                                                Swal.fire({ icon: 'success', title: 'Request Cancelled', text: res.message, toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+                                                                                await loadAll();
+                                                                            }
+                                                                        } catch (err: any) {
+                                                                            Swal.fire({ icon: 'error', title: 'Error', text: err?.message || '', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
+                                                                        }
+                                                                    }}
+                                                                    className="px-3 py-1 bg-gray-400 text-white rounded-md text-sm flex items-center hover:bg-gray-500"
+                                                                >
+                                                                    <X className="w-4 h-4 mr-2" />No, Cancel
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    
+                                                    // REQUESTER VIEW: Show Received badge for completed
+                                                    if (isRequester && serverStatus === 'completed') {
+                                                        return <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-md text-sm">Received</span>;
+                                                    }
+                                                    
+                                                    // REQUESTER VIEW: Show Cancelled badge
+                                                    if (isRequester && serverStatus === 'cancelled') {
+                                                        return <span className="inline-block px-3 py-1 bg-gray-100 text-gray-800 rounded-md text-sm">Cancelled</span>;
+                                                    }
+                                                    
+                                                    // Show rejected badge for both parties
+                                                    if (serverStatus === 'rejected') {
+                                                        return <span className="inline-block px-3 py-1 bg-red-100 text-red-800 rounded-md text-sm">Rejected</span>;
+                                                    }
+                                                    
+                                                    return null;
                                                 })()
                                             )}
                                         </div>

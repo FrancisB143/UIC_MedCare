@@ -101,7 +101,8 @@ class BranchRequestController extends Controller
         }
     }
 
-    // Approve a request: update status and set confirmed_by
+    // Approve a request: update status to 'approved' and notify requester
+    // Stock transfer happens later in confirmReceipt() when requester confirms they received it
     public function approve(Request $request, $requestId)
     {
         try {
@@ -128,12 +129,10 @@ class BranchRequestController extends Controller
             $stockInRows = DB::table('medicine_stock_in as msi')
                 ->leftJoin('medicine_stock_out as mso', 'msi.medicine_stock_in_id', '=', 'mso.medicine_stock_in_id')
                 ->leftJoin('medicine_archived as ma', 'msi.medicine_stock_in_id', '=', 'ma.medicine_stock_in_id')
-                // include expiration_date in select and groupBy so ORDER BY is valid on SQL Server
-                ->select('msi.medicine_stock_in_id', 'msi.quantity', 'msi.expiration_date', DB::raw('ISNULL(SUM(mso.quantity_dispensed),0) as total_dispensed'), DB::raw('ISNULL(SUM(ma.quantity),0) as total_archived'))
+                ->select('msi.medicine_stock_in_id', 'msi.quantity', DB::raw('ISNULL(SUM(mso.quantity_dispensed),0) as total_dispensed'), DB::raw('ISNULL(SUM(ma.quantity),0) as total_archived'))
                 ->where('msi.branch_id', $approverBranchId)
                 ->where('msi.medicine_id', $medicineId)
-                ->groupBy('msi.medicine_stock_in_id', 'msi.quantity', 'msi.expiration_date')
-                ->orderBy('msi.expiration_date', 'asc')
+                ->groupBy('msi.medicine_stock_in_id', 'msi.quantity')
                 ->get();
 
             $totalAvailable = 0;
@@ -147,110 +146,25 @@ class BranchRequestController extends Controller
                 return response()->json(['success' => false, 'message' => 'Insufficient stock to approve request'], 400);
             }
 
-            // NOTE: Do NOT create medicine_stock_out rows on approve (user requested).
-            // We still perform the FEFO availability check and capture the first
-            // stock_in id used for traceability, but we skip inserting outbound
-            // stock rows.
-            $remaining = $qtyRequested;
-            $firstStockInId = null;
-            foreach ($stockInRows as $r) {
-                if ($remaining <= 0) break;
-                $available = intval($r->quantity) - intval($r->total_dispensed) - intval($r->total_archived);
-                if ($available <= 0) continue;
-                $toConsume = min($available, $remaining);
-
-                // Decrement the medicine_stock_in.quantity by $toConsume for this stock_in row.
-                // Use an atomic update to avoid races: SET quantity = quantity - @consume
-                $affected = DB::table('medicine_stock_in')
-                    ->where('medicine_stock_in_id', $r->medicine_stock_in_id)
-                    ->where('branch_id', $approverBranchId)
-                    ->where('medicine_id', $medicineId)
-                    ->whereRaw('quantity >= ?', [$toConsume])
-                    ->update(['quantity' => DB::raw('quantity - ' . intval($toConsume))]);
-
-                if ($affected === 0) {
-                    // If the update didn't affect a row, another operation may have consumed it.
-                    // Recalculate remaining availability and retry or abort.
-                    $totalAvailable = 0;
-                    foreach (DB::table('medicine_stock_in as msi')
-                        ->leftJoin('medicine_stock_out as mso', 'msi.medicine_stock_in_id', '=', 'mso.medicine_stock_in_id')
-                        ->leftJoin('medicine_archived as ma', 'msi.medicine_stock_in_id', '=', 'ma.medicine_stock_in_id')
-                        ->select('msi.medicine_stock_in_id', 'msi.quantity', DB::raw('ISNULL(SUM(mso.quantity_dispensed),0) as total_dispensed'), DB::raw('ISNULL(SUM(ma.quantity),0) as total_archived'))
-                        ->where('msi.branch_id', $approverBranchId)
-                        ->where('msi.medicine_id', $medicineId)
-                        ->groupBy('msi.medicine_stock_in_id', 'msi.quantity')
-                        ->orderBy('msi.expiration_date', 'asc')
-                        ->get() as $rr) {
-                        $avail = intval($rr->quantity) - intval($rr->total_dispensed) - intval($rr->total_archived);
-                        if ($avail > 0) $totalAvailable += $avail;
-                    }
-                    if ($totalAvailable < $remaining) {
-                        DB::rollBack();
-                        return response()->json(['success' => false, 'message' => 'Insufficient stock during commit, please retry'], 409);
-                    }
-                    // If still sufficient, continue loop; the updated quantities will be re-read on next iteration only if needed.
-                    continue;
-                }
-
-                if ($firstStockInId === null && $toConsume > 0) {
-                    $firstStockInId = $r->medicine_stock_in_id;
-                }
-
-                $remaining -= $toConsume;
-            }
-
-            if ($remaining > 0) {
-                // This should not happen because we checked totalAvailable earlier,
-                // but guard defensively.
-                DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Failed to deduct complete quantity from stock'], 500);
-            }
-
-            // Optionally link the branch_request to the primary medicine_stock_in used
-            // (useful for traceability). If multiple stock_in rows were used, we store
-            // the first one used.
+            // Update request status to 'approved' (stock transfer happens in confirmReceipt)
             $updated = DB::table('branch_requests')
                 ->where('branch_request_id', $requestId)
-                ->update(['status' => 'approved', 'confirmed_by' => $validated['confirmed_by'], 'medicine_stock_in_id' => $firstStockInId, 'updated_at' => now()]);
+                ->update(['status' => 'approved', 'confirmed_by' => $validated['confirmed_by'], 'updated_at' => now()]);
 
             if (!$updated) {
                 DB::rollBack();
                 return response()->json(['success' => false, 'message' => 'Failed to update request status'], 500);
             }
 
-            // If the requester branch doesn't have any stock_in rows for this medicine,
-            // create an incoming stock record so it appears in their inventory view.
-            try {
-                $hasRequesterStock = DB::table('medicine_stock_in')
-                    ->where('branch_id', $requesterBranchId)
-                    ->where('medicine_id', $medicineId)
-                    ->exists();
-
-                if (!$hasRequesterStock) {
-                    $newInId = DB::table('medicine_stock_in')->insertGetId([
-                        'medicine_id' => $medicineId,
-                        'quantity' => $qtyRequested,
-                        'date_received' => now(),
-                        'expiration_date' => now()->addYear()->toDateString(),
-                        'user_id' => $validated['confirmed_by'],
-                        'branch_id' => $requesterBranchId,
-                        'timestamp_dispensed' => now()
-                    ]);
-                    Log::info('Created medicine_stock_in for requester branch ' . $requesterBranchId . ' id=' . $newInId . ' for request ' . $requestId);
-                }
-            } catch (\Exception $e) {
-                // don't fail the whole approve because of this; log and continue
-                Log::warning('Failed to create medicine_stock_in for requester branch: ' . $e->getMessage());
-            }
-
             // Create notification back to requester branch
             $medicine = DB::table('medicines')->where('medicine_id', $medicineId)->value('medicine_name');
-            $msg = sprintf('Your request for %d units of %s has been approved', $qtyRequested, $medicine ?? 'medicine');
-            DB::table('notifications')->insert(['branch_id' => $requesterBranchId, 'type' => 'request', 'message' => $msg, 'reference_id' => $medicineId, 'is_read' => 0, 'created_at' => now()]);
+            $msg = sprintf('Your request for %d units of %s has been approved [req:%d]', $qtyRequested, $medicine ?? 'medicine', $requestId);
+            // Use medicine_id for reference_id (FK constraint), not request_id
+            DB::table('notifications')->insert(['branch_id' => $requesterBranchId, 'type' => 'request_approved', 'message' => $msg, 'reference_id' => $medicineId, 'is_read' => 0, 'created_at' => now()]);
 
             DB::commit();
 
-            return response()->json(['success' => true]);
+            return response()->json(['success' => true, 'message' => 'Request approved. Waiting for requester to confirm receipt.']);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
@@ -289,6 +203,191 @@ class BranchRequestController extends Controller
         } catch (\Exception $e) {
             Log::error('Error rejecting branch request: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Server error occurred'], 500);
+        }
+    }
+
+    /**
+     * Confirm receipt of approved request (Branch A confirms they received the medicine)
+     * When received=true, this is where stock transfer happens: deduct from supplier, add to requester
+     */
+    public function confirmReceipt(Request $request, $requestId)
+    {
+        try {
+            $validated = $request->validate([
+                'received' => 'required|boolean',
+                'confirmed_by' => 'required|integer|exists:users,user_id'
+            ]);
+
+            DB::beginTransaction();
+
+            // Fetch the request
+            $req = DB::table('branch_requests')->where('branch_request_id', $requestId)->first();
+            if (!$req) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Request not found'], 404);
+            }
+
+            // Only approved requests can be confirmed
+            if ($req->status !== 'approved') {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Only approved requests can be confirmed'], 400);
+            }
+
+            // If received=true, perform stock transfer
+            if ($validated['received']) {
+                $approverBranchId = $req->to_branch_id;
+                $requesterBranchId = $req->from_branch_id;
+                $medicineId = $req->medicine_id;
+                $qtyRequested = intval($req->quantity_requested);
+
+                // Calculate total available stock in approver branch for this medicine
+                $stockInRows = DB::table('medicine_stock_in as msi')
+                    ->leftJoin('medicine_stock_out as mso', 'msi.medicine_stock_in_id', '=', 'mso.medicine_stock_in_id')
+                    ->leftJoin('medicine_archived as ma', 'msi.medicine_stock_in_id', '=', 'ma.medicine_stock_in_id')
+                    ->select('msi.medicine_stock_in_id', 'msi.quantity', 'msi.expiration_date', DB::raw('ISNULL(SUM(mso.quantity_dispensed),0) as total_dispensed'), DB::raw('ISNULL(SUM(ma.quantity),0) as total_archived'))
+                    ->where('msi.branch_id', $approverBranchId)
+                    ->where('msi.medicine_id', $medicineId)
+                    ->groupBy('msi.medicine_stock_in_id', 'msi.quantity', 'msi.expiration_date')
+                    ->orderBy('msi.expiration_date', 'asc')
+                    ->get();
+
+                $totalAvailable = 0;
+                foreach ($stockInRows as $r) {
+                    $available = intval($r->quantity) - intval($r->total_dispensed) - intval($r->total_archived);
+                    if ($available > 0) $totalAvailable += $available;
+                }
+
+                if ($totalAvailable < $qtyRequested) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'message' => 'Insufficient stock to complete transfer (stock may have been used since approval)'], 400);
+                }
+
+                // Deduct stock from supplier branch (FEFO order)
+                $remaining = $qtyRequested;
+                $firstStockInId = null;
+                foreach ($stockInRows as $r) {
+                    if ($remaining <= 0) break;
+                    $available = intval($r->quantity) - intval($r->total_dispensed) - intval($r->total_archived);
+                    if ($available <= 0) continue;
+                    $toConsume = min($available, $remaining);
+
+                    // Decrement the medicine_stock_in.quantity by $toConsume for this stock_in row
+                    $affected = DB::table('medicine_stock_in')
+                        ->where('medicine_stock_in_id', $r->medicine_stock_in_id)
+                        ->where('branch_id', $approverBranchId)
+                        ->where('medicine_id', $medicineId)
+                        ->whereRaw('quantity >= ?', [$toConsume])
+                        ->update(['quantity' => DB::raw('quantity - ' . intval($toConsume))]);
+
+                    if ($affected === 0) {
+                        // Recalculate if stock was consumed elsewhere
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => 'Stock was modified during transfer, please retry'], 409);
+                    }
+
+                    if ($firstStockInId === null && $toConsume > 0) {
+                        $firstStockInId = $r->medicine_stock_in_id;
+                    }
+
+                    $remaining -= $toConsume;
+                }
+
+                if ($remaining > 0) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'message' => 'Failed to deduct complete quantity from stock'], 500);
+                }
+
+                // Add stock to requester branch
+                // Check if requester branch has any stock_in rows for this medicine
+                $hasRequesterStock = DB::table('medicine_stock_in')
+                    ->where('branch_id', $requesterBranchId)
+                    ->where('medicine_id', $medicineId)
+                    ->exists();
+
+                if ($hasRequesterStock) {
+                    // Find the most recent stock_in row and increment it
+                    $recentStock = DB::table('medicine_stock_in')
+                        ->where('branch_id', $requesterBranchId)
+                        ->where('medicine_id', $medicineId)
+                        ->orderBy('date_received', 'desc')
+                        ->first();
+
+                    if ($recentStock) {
+                        DB::table('medicine_stock_in')
+                            ->where('medicine_stock_in_id', $recentStock->medicine_stock_in_id)
+                            ->update(['quantity' => DB::raw('quantity + ' . intval($qtyRequested))]);
+                        Log::info('Added ' . $qtyRequested . ' units to existing medicine_stock_in id=' . $recentStock->medicine_stock_in_id . ' for request ' . $requestId);
+                    }
+                } else {
+                    // Create new stock_in row for requester branch
+                    $newInId = DB::table('medicine_stock_in')->insertGetId([
+                        'medicine_id' => $medicineId,
+                        'quantity' => $qtyRequested,
+                        'date_received' => now(),
+                        'expiration_date' => now()->addYear()->toDateString(),
+                        'user_id' => $validated['confirmed_by'],
+                        'branch_id' => $requesterBranchId,
+                        'timestamp_dispensed' => now()
+                    ]);
+                    Log::info('Created medicine_stock_in for requester branch ' . $requesterBranchId . ' id=' . $newInId . ' for request ' . $requestId);
+                }
+
+                // Link the branch_request to the primary medicine_stock_in used
+                DB::table('branch_requests')
+                    ->where('branch_request_id', $requestId)
+                    ->update(['medicine_stock_in_id' => $firstStockInId]);
+
+                // Update status to 'completed'
+                $updated = DB::table('branch_requests')
+                    ->where('branch_request_id', $requestId)
+                    ->update(['status' => 'completed', 'updated_at' => now()]);
+
+                if (!$updated) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'message' => 'Failed to update request status'], 500);
+                }
+
+                // Create notification for the supplier branch (to_branch_id) to inform them
+                $medicine = DB::table('medicines')->where('medicine_id', $req->medicine_id)->first();
+                $requesterBranch = DB::table('branches')->where('branch_id', $req->from_branch_id)->first();
+                
+                $msg = sprintf(
+                    '%s confirmed receipt of %d units of %s',
+                    $requesterBranch->branch_name ?? 'Branch ' . $req->from_branch_id,
+                    $req->quantity_requested,
+                    $medicine->medicine_name ?? 'medicine'
+                );
+                
+                DB::table('notifications')->insert([
+                    'branch_id' => $req->to_branch_id,
+                    'type' => 'system',
+                    'message' => $msg,
+                    'reference_id' => $req->medicine_id,
+                    'is_read' => 0,
+                    'created_at' => now()
+                ]);
+
+                DB::commit();
+                return response()->json(['success' => true, 'message' => 'Receipt confirmed and stock transferred successfully']);
+            } else {
+                // If cancelled (not received), update status to 'cancelled'
+                $updated = DB::table('branch_requests')
+                    ->where('branch_request_id', $requestId)
+                    ->update(['status' => 'cancelled', 'updated_at' => now()]);
+
+                if (!$updated) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'message' => 'Failed to update request status'], 500);
+                }
+
+                DB::commit();
+                return response()->json(['success' => true, 'message' => 'Request cancelled']);
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error confirming receipt: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Server error occurred: ' . $e->getMessage()], 500);
         }
     }
 

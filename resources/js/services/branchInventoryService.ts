@@ -651,6 +651,31 @@ export class BranchInventoryService {
         }
     }
 
+    static async confirmBranchRequestReceipt(requestId: number, received: boolean, confirmedBy: number): Promise<{ success: boolean; message?: string }> {
+        try {
+            const response = await fetch(`/api/branch-requests/${requestId}/confirm-receipt`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify({ received, confirmed_by: confirmedBy })
+            });
+
+            const body = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const msg = body?.message || body?.error || `HTTP error! status: ${response.status}`;
+                return { success: false, message: msg };
+            }
+
+            return { success: true, message: body?.message };
+        } catch (error: any) {
+            console.error('Error confirming receipt:', error);
+            return { success: false, message: error?.message || 'Unknown error' };
+        }
+    }
+
     // Mark notifications as read for a branch
     static async markNotificationsRead(branchId: number): Promise<boolean> {
         try {

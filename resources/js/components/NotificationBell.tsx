@@ -43,12 +43,14 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
     const [fetchedNotifications, setFetchedNotifications] = useState<Notification[]>([]);
     const [fetchedLowStock, setFetchedLowStock] = useState<LowStockMedicine[]>([]);
     const [branchesMap, setBranchesMap] = useState<Record<number, string>>({});
-    // local optimistic status map for requests: { [requestId]: 'approved' | 'rejected' }
-    const [requestActionStatus, setRequestActionStatus] = useState<Record<number, 'approved' | 'rejected'>>({});
+    // local optimistic status map for requests: { [requestId]: 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled' }
+    const [requestActionStatus, setRequestActionStatus] = useState<Record<number, 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled'>>({});
     // When true, the bell badge is hidden optimistically while we persist the read state.
     const [optimisticAllRead, setOptimisticAllRead] = useState(false);
     // Track pending branch requests count
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+    // Track approved requests awaiting receipt confirmation (for requester branch)
+    const [awaitingReceiptCount, setAwaitingReceiptCount] = useState(0);
     // debug raw view removed
 
     // We will rely on the database notifications for low-stock and requests.
@@ -79,10 +81,10 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
     // immediately while the backend request runs.
     const unreadNotificationsCount = optimisticAllRead ? 0 : allNotifications.filter(n => !(n as any).isRead).length;
     
-    // Total unread count includes both unread notifications AND pending branch requests
-    const unreadCount = unreadNotificationsCount + pendingRequestsCount;
+    // Total unread count includes: unread notifications + pending branch requests + approved requests awaiting receipt
+    const unreadCount = unreadNotificationsCount + pendingRequestsCount + awaitingReceiptCount;
     
-    // Show red dot indicator when: there are unread notifications (is_read=0) OR pending branch requests (status='pending')
+    // Show red dot indicator when: unread notifications OR pending requests OR approved requests awaiting receipt confirmation
     const shouldShowRedDot = unreadCount > 0;
 
     // Auto-show low stock alert when there are medicines with 50 or below units
@@ -193,17 +195,26 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
                     // normalize to Notification shape minimally
                     const normalized = (rows || []).map((r: any) => ({
                         id: r.notification_id ?? r.id ?? Math.random().toString(36).slice(2),
-                        type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' ? 'request' : 'info')) as any,
+                        type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' || r.type === 'request_approved' ? 'request' : 'info')) as any,
                         message: r.message ?? '',
                         isRead: !!r.is_read,
                         createdAt: r.created_at ?? new Date().toISOString(),
                         requestId: r.request_id ?? undefined,
-                        // include server-provided request status when available (from NotificationController)
+                        // include server-provided request status and branch context
                         requestStatus: r.request_status ?? r.requestStatus ?? undefined,
+                        fromBranchId: r.from_branch_id ?? undefined,
+                        toBranchId: r.to_branch_id ?? undefined,
                         // preserve reference_id for low-stock deduplication in toast
                         reference_id: r.reference_id ?? undefined,
                     })) as Notification[];
                     setFetchedNotifications(normalized);
+                    
+                    // Count approved requests awaiting receipt confirmation (where current user is requester)
+                    const awaitingReceipt = normalized.filter((n: any) => {
+                        return n.requestStatus === 'approved' && n.fromBranchId === branchId;
+                    }).length;
+                    console.log('NotificationBell: Found', awaitingReceipt, 'approved requests awaiting receipt');
+                    setAwaitingReceiptCount(awaitingReceipt);
                 }
 
                 // Fetch pending branch requests to determine if red dot should show
@@ -333,7 +344,18 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
                 
                 // Refetch notifications and pending requests to update red dot state
                 const rows = await BranchInventoryService.getNotifications(currentUser.branch_id);
-                const normalized = (rows || []).map((r: any) => ({ id: r.notification_id ?? r.id, type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' ? 'request' : 'info')) as any, message: r.message ?? '', isRead: !!r.is_read, createdAt: r.created_at })) as Notification[];
+                const normalized = (rows || []).map((r: any) => ({ 
+                    id: r.notification_id ?? r.id, 
+                    type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' || r.type === 'request_approved' ? 'request' : 'info')) as any, 
+                    message: r.message ?? '', 
+                    isRead: !!r.is_read, 
+                    createdAt: r.created_at,
+                    requestId: r.request_id ?? undefined,
+                    requestStatus: r.request_status ?? undefined,
+                    fromBranchId: r.from_branch_id ?? undefined,
+                    toBranchId: r.to_branch_id ?? undefined,
+                    reference_id: r.reference_id ?? undefined,
+                })) as Notification[];
                 setFetchedNotifications(normalized);
                 
                 // Update pending requests count so red dot disappears if all are confirmed
@@ -365,7 +387,18 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
                 
                 // Refetch notifications and pending requests to update red dot state
                 const rows = await BranchInventoryService.getNotifications(currentUser.branch_id);
-                const normalized = (rows || []).map((r: any) => ({ id: r.notification_id ?? r.id, type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' ? 'request' : 'info')) as any, message: r.message ?? '', isRead: !!r.is_read, createdAt: r.created_at })) as Notification[];
+                const normalized = (rows || []).map((r: any) => ({ 
+                    id: r.notification_id ?? r.id, 
+                    type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' || r.type === 'request_approved' ? 'request' : 'info')) as any, 
+                    message: r.message ?? '', 
+                    isRead: !!r.is_read, 
+                    createdAt: r.created_at,
+                    requestId: r.request_id ?? undefined,
+                    requestStatus: r.request_status ?? undefined,
+                    fromBranchId: r.from_branch_id ?? undefined,
+                    toBranchId: r.to_branch_id ?? undefined,
+                    reference_id: r.reference_id ?? undefined,
+                })) as Notification[];
                 setFetchedNotifications(normalized);
                 
                 // Update pending requests count so red dot disappears if all are confirmed
@@ -378,6 +411,58 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
         } catch (err: any) {
             setRequestActionStatus(prev => { const copy = { ...prev }; delete copy[requestId]; return copy; });
             Swal.fire({ icon: 'error', title: 'Error rejecting request', text: err?.message || '', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
+        }
+    };
+
+    const handleConfirmReceipt = async (requestId: number, received: boolean) => {
+        const currentUser = UserService.getCurrentUser();
+        if (!currentUser) return;
+
+        // Set optimistic status
+        setRequestActionStatus(prev => ({ ...prev, [requestId]: received ? 'completed' : 'cancelled' }));
+
+        try {
+            const res = await BranchInventoryService.confirmBranchRequestReceipt(requestId, received, currentUser.user_id);
+            if (res && res.success) {
+                Swal.fire({ 
+                    icon: 'success', 
+                    title: received ? 'Receipt Confirmed' : 'Request Cancelled', 
+                    text: res.message, 
+                    toast: true, 
+                    position: 'top-end', 
+                    timer: 2000, 
+                    showConfirmButton: false 
+                });
+                
+                // Refetch notifications to update UI
+                const rows = await BranchInventoryService.getNotifications(currentUser.branch_id);
+                const normalized = (rows || []).map((r: any) => ({ 
+                    id: r.notification_id ?? r.id, 
+                    type: (r.type === 'low_stock' ? 'warning' : (r.type === 'request' || r.type === 'request_approved' ? 'request' : 'info')) as any, 
+                    message: r.message ?? '', 
+                    isRead: !!r.is_read, 
+                    createdAt: r.created_at,
+                    requestId: r.request_id ?? undefined,
+                    requestStatus: r.request_status ?? undefined,
+                    fromBranchId: r.from_branch_id ?? undefined,
+                    toBranchId: r.to_branch_id ?? undefined,
+                    reference_id: r.reference_id ?? undefined,
+                })) as Notification[];
+                setFetchedNotifications(normalized);
+                
+                // Update awaiting receipt count (cancelled requests shouldn't count)
+                const awaitingReceipt = normalized.filter((n: any) => {
+                    return n.requestStatus === 'approved' && n.fromBranchId === currentUser.branch_id;
+                }).length;
+                setAwaitingReceiptCount(awaitingReceipt);
+            } else {
+                // Revert optimistic status
+                setRequestActionStatus(prev => { const copy = { ...prev }; delete copy[requestId]; return copy; });
+                Swal.fire({ icon: 'error', title: res?.message || 'Failed to confirm receipt', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
+            }
+        } catch (err: any) {
+            setRequestActionStatus(prev => { const copy = { ...prev }; delete copy[requestId]; return copy; });
+            Swal.fire({ icon: 'error', title: 'Error confirming receipt', text: err?.message || '', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
         }
     };
 
@@ -498,22 +583,107 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
                                                 <p className="text-xs text-gray-500">{new Date(notification.createdAt).toLocaleDateString()}</p>
                                             </>
                                         )}
-                                        {/* If this notification represents a branch request, show Approve/Reject */}
+                                        {/* If this notification represents a branch request, show Approve/Reject or Receipt Confirmation */}
                                         {notification.type === 'request' && (notification as any).requestId && (
                                             (() => {
                                                 const id = Number((notification as any).requestId);
+                                                const currentUser = UserService.getCurrentUser();
+                                                const currentBranchId = currentUser?.branch_id;
+                                                
+                                                // Get branch context from the notification
+                                                const fromBranchId = (notification as any).fromBranchId;
+                                                const toBranchId = (notification as any).toBranchId;
+                                                
                                                 // prefer a local optimistic status, otherwise use server-provided status
                                                 const serverStatus = (notification as any).requestStatus || (notification as any).request_status || null;
                                                 const localStatus = requestActionStatus[id] ?? null;
                                                 const effectiveStatus = localStatus || serverStatus;
+                                                
+                                                // Determine if current user is the requester (from_branch) or supplier (to_branch)
+                                                const isRequester = currentBranchId === fromBranchId;
+                                                const isSupplier = currentBranchId === toBranchId;
+                                                
+                                                // SUPPLIER VIEW: Show Approve/Reject buttons for pending requests
+                                                if (isSupplier && (effectiveStatus === 'pending' || !effectiveStatus)) {
+                                                    return (
+                                                        <div className="mt-3 flex gap-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (onApproveRequest) onApproveRequest(id);
+                                                                    else handleApprove(id);
+                                                                }}
+                                                                className="px-3 py-1 bg-green-600 text-white rounded-md text-sm flex items-center hover:bg-green-700"
+                                                            >
+                                                                <Check className="w-4 h-4 mr-2" />
+                                                                Approve
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (onRejectRequest) onRejectRequest(id);
+                                                                    else handleReject(id);
+                                                                }}
+                                                                className="px-3 py-1 bg-red-600 text-white rounded-md text-sm flex items-center hover:bg-red-700"
+                                                            >
+                                                                <X className="w-4 h-4 mr-2" />
+                                                                Reject
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
+                                                
+                                                // REQUESTER VIEW: Show receipt confirmation buttons for approved requests
+                                                if (isRequester && effectiveStatus === 'approved') {
+                                                    return (
+                                                        <div className="mt-3">
+                                                            <p className="text-xs text-gray-600 mb-2">Did you receive the medicine?</p>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => handleConfirmReceipt(id, true)}
+                                                                    className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm flex items-center hover:bg-blue-700"
+                                                                >
+                                                                    <Check className="w-4 h-4 mr-1" />
+                                                                    Yes, received
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleConfirmReceipt(id, false)}
+                                                                    className="px-3 py-1 bg-gray-400 text-white rounded-md text-sm flex items-center hover:bg-gray-500"
+                                                                >
+                                                                    <X className="w-4 h-4 mr-1" />
+                                                                    No, Cancel
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
 
-                                                if (effectiveStatus === 'approved') {
+                                                // REQUESTER VIEW: Show completed status for received requests
+                                                if (isRequester && effectiveStatus === 'completed') {
+                                                    return (
+                                                        <div className="mt-3">
+                                                            <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-md text-sm">Received</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                
+                                                // REQUESTER VIEW: Show cancelled status
+                                                if (isRequester && effectiveStatus === 'cancelled') {
+                                                    return (
+                                                        <div className="mt-3">
+                                                            <span className="inline-block px-3 py-1 bg-gray-100 text-gray-800 rounded-md text-sm">Cancelled</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                
+                                                // SUPPLIER VIEW: Show approved status (no action needed from supplier after approval)
+                                                if (isSupplier && effectiveStatus === 'approved') {
                                                     return (
                                                         <div className="mt-3">
                                                             <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-md text-sm">Approved</span>
                                                         </div>
                                                     );
                                                 }
+
+                                                // Show rejected status for both parties
                                                 if (effectiveStatus === 'rejected') {
                                                     return (
                                                         <div className="mt-3">
@@ -522,30 +692,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, lowS
                                                     );
                                                 }
 
-                                                return (
-                                                    <div className="mt-3 flex gap-2">
-                                                        <button
-                                                            onClick={() => {
-                                                                if (onApproveRequest) onApproveRequest(id);
-                                                                else handleApprove(id);
-                                                            }}
-                                                            className="px-3 py-1 bg-green-600 text-white rounded-md text-sm flex items-center"
-                                                        >
-                                                            <Check className="w-4 h-4 mr-2" />
-                                                            Approve
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                if (onRejectRequest) onRejectRequest(id);
-                                                                else handleReject(id);
-                                                            }}
-                                                            className="px-3 py-1 bg-red-600 text-white rounded-md text-sm flex items-center"
-                                                        >
-                                                            <X className="w-4 h-4 mr-2" />
-                                                            Reject
-                                                        </button>
-                                                    </div>
-                                                );
+                                                return null;
                                             })()
                                         )}
                                     </div>

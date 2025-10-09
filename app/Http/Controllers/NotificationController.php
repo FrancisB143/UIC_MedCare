@@ -53,18 +53,24 @@ class NotificationController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Parse request id token from message if present and include request status when available
+            // Parse request id token from message if present and include request status + branch context
             $parsed = $notifications->map(function($n) {
                 $obj = (array) $n;
                 $obj['request_id'] = null;
                 $obj['request_status'] = null;
+                $obj['from_branch_id'] = null;
+                $obj['to_branch_id'] = null;
                 if (!empty($obj['message'])) {
                     if (preg_match('/\[req:(\d+)\]/', $obj['message'], $m)) {
                         $reqId = intval($m[1]);
                         $obj['request_id'] = $reqId;
-                        // fetch request status if exists
+                        // fetch request status and branch context if exists
                         $req = DB::table('branch_requests')->where('branch_request_id', $reqId)->first();
-                        if ($req) $obj['request_status'] = $req->status ?? null;
+                        if ($req) {
+                            $obj['request_status'] = $req->status ?? null;
+                            $obj['from_branch_id'] = $req->from_branch_id ?? null;
+                            $obj['to_branch_id'] = $req->to_branch_id ?? null;
+                        }
                     }
                 }
                 return $obj;
