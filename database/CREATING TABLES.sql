@@ -111,7 +111,7 @@ CREATE TABLE history_log (
     medicine_id INT NOT NULL,
     branch_id INT NOT NULL,
     user_id INT NOT NULL,
-    activity VARCHAR(20) NOT NULL CHECK (activity IN ('dispensed', 'restocked', 'added')),
+    activity VARCHAR(20) NOT NULL CHECK (activity IN ('dispensed', 'restocked', 'added', 'removed')),
     quantity INT NOT NULL,
     description VARCHAR(MAX) NULL,
     created_at DATETIME DEFAULT GETDATE(),
